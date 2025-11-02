@@ -1,0 +1,4 @@
+name: quast
+channels: [conda-forge, bioconda]
+dependencies:
+  - quast

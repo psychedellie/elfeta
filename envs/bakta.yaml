@@ -1,0 +1,4 @@
+name: bakta
+channels: [conda-forge, bioconda]
+dependencies:
+  - bakta

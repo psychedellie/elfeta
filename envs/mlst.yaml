@@ -1,0 +1,4 @@
+name: mlst
+channels: [conda-forge, bioconda]
+dependencies:
+  - mlst

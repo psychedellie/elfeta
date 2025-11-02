@@ -1,0 +1,4 @@
+name: fastplong
+channels: [conda-forge, bioconda]
+dependencies:
+  - fastplong

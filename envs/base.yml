@@ -1,0 +1,5 @@
+# envs/base.yml
+name: nf-base
+channels: [conda-forge, bioconda, defaults]
+dependencies:
+  - coreutils

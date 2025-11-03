@@ -19,4 +19,4 @@ if [ -d $output_dir ]; then
     rm -rf $output_dir
 fi
 
-micromamba run -n medaka medaka_consensus -i $np_raw_file -d $assembly -o $output_dir -t $threads --bacteria -m $model
+medaka_consensus -i $np_raw_file -d $assembly -o $output_dir -t $threads --bacteria -m $model

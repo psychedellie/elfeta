@@ -2,6 +2,7 @@ process MEDAKA {
     tag { sample_id }
     label 'medaka_polishing'
     publishDir "${params.outdir}", mode: 'copy'
+    conda "${params.envs_dir}/medaka.yaml"
 
     input:
     tuple val(sample_id), path(fastq), path(assembly), val(basecaller)
@@ -21,6 +22,6 @@ process MEDAKA {
     echo "Assembly exists: \$(if [ -f \"$assembly\" ]; then echo 'YES'; else echo 'NO'; fi)"
     echo "Basecaller: $basecaller"
     
-    bash ${projectDir}/scripts/medaka.sh "${fastq}" "${assembly}" "flye/${sample_id}/medaka" "${task.cpus}" "${basecaller}"
+    bash ${params.scripts_dir}/medaka.sh "${fastq}" "${assembly}" "flye/${sample_id}/medaka" "${task.cpus}" "${basecaller}"
     """
 }

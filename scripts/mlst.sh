@@ -9,4 +9,4 @@ output=$3
 mkdir -p "$(dirname "$output")"
 
 # Run MLST, but don’t kill the pipeline if no ST is found
-micromamba run -n mlst mlst "$consensus" --label "$label" --quiet > "$output" || true
+mlst "$consensus" --label "$label" --quiet > "$output" || true

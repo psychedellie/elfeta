@@ -21,33 +21,20 @@ echo "[fastplong] Input:  $input_dir"
 echo "[fastplong] Output: $output_dir"
 echo "[fastplong] Threads: $threads" | tee -a "$log_file"
 
-# check env
-if command -v micromamba >/dev/null 2>&1; then
-    RUNNER="micromamba run -n fastplong"
-else
-    echo "[fastplong] ERROR: micromamba not found" | tee -a "$log_file"
-    exit 1
-fi
-
-if ! $RUNNER bash -lc 'command -v fastplong' >/dev/null 2>&1; then
-    echo "[fastplong] ERROR: fastplong not found in env 'fastplong'" | tee -a "$log_file"
-    exit 1
-fi
-
 # skip existing
 if compgen -G "${output_dir}/filtered_reads/*.fastq.gz" > /dev/null; then
     echo "[fastplong] Filtered reads already present — skipping." | tee -a "$log_file"
     exit 0
 fi
 
-# run fastplong
+# run FastpLong directly (Nextflow already activates the env)
 echo "[fastplong] Running FastpLong..." | tee -a "$log_file"
 
-$RUNNER python "$script_dir/parallel.py" \
+python "$script_dir/parallel.py" \
     --input_dir "$input_dir" \
     --out_dir "$output_dir" \
     --thread "$threads" \
-    --args '-m 12 -l 1000 -5 -3 -W 20 -M 12 ' \
+    --args '-m 12 -l 1000 -5 -3 -W 20 -M 12' \
     2>&1 | tee -a "$log_file"
 
 # organize outputs

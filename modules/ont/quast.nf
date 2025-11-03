@@ -1,6 +1,7 @@
 process QUAST {
     tag "QUAST on $sample_id"
     label 'metrics'
+    conda "${params.envs_dir}/quast.yaml"
     
     publishDir "${params.outdir}", mode: 'copy'
 
@@ -13,7 +14,7 @@ process QUAST {
     script:
 
     """
-    bash ${projectDir}/scripts/quast.sh \
+    bash ${params.scripts_dir}/quast.sh \
         "${consensus}" \
         "flye/${sample_id}/quast" \
         ${fastq} \

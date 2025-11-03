@@ -12,6 +12,6 @@ process MERGE_FASTQS {
     script:
     """
     mkdir -p reads_merged
-    bash ${projectDir}/scripts/merge_fastqs.sh "${input_dir}" "reads_merged" "${sample_sheet}"
+    bash ${params.scripts_dir}/merge_fastqs.sh "${input_dir}" "reads_merged" "${sample_sheet}"
     """
 }

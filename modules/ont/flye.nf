@@ -2,6 +2,7 @@ process FLYE {
     tag { sample_id }
     label 'flye_assembler'
     publishDir "${params.outdir}", mode: 'copy'
+    conda "${params.envs_dir}/flye.yaml"
 
     input:
         tuple val(sample_id), path(fastq)
@@ -13,6 +14,6 @@ process FLYE {
     script:
     """
     mkdir -p flye/${sample_id}
-    bash ${projectDir}/scripts/flye.sh "${fastq}" "flye/${sample_id}" "${task.cpus}"
+    bash ${params.scripts_dir}/flye.sh "${fastq}" "flye/${sample_id}" "${task.cpus}"
     """
 }

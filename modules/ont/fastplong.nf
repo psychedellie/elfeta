@@ -1,6 +1,7 @@
 process FASTPLONG {
     label 'fastplong'
     publishDir "${params.outdir}", mode: 'copy'
+    conda "${params.envs_dir}/fastplong.yaml"
 
     input:
     path(input_dir)
@@ -14,7 +15,7 @@ process FASTPLONG {
     script:
         """
         # Run fastplong - it expects an input directory, not a single file
-        bash ${projectDir}/scripts/fastplong.sh \
+        bash ${params.scripts_dir}/fastplong.sh \
             ${input_dir} \
             "fastplong" \
             ${task.cpus}

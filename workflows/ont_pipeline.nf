@@ -1,17 +1,18 @@
 #!/usr/bin/env nextflow
 nextflow.enable.dsl=2
 
-include { MERGE_FASTQS } from '../modules/ont/merge_fastqs.nf'
-include { FASTPLONG }   from '../modules/ont/fastplong.nf'
-include { FLYE }        from '../modules/ont/flye.nf'
-include { MEDAKA }      from '../modules/ont/medaka.nf'
-include { BAKTA }      from '../modules/ont/bakta.nf'
-include { RMLST }      from '../modules/ont/rmlst.nf'
-include { QUAST }      from '../modules/ont/quast.nf'
-include { MLST }      from '../modules/ont/mlst.nf'
-include { AMRFINDERPLUS }      from '../modules/ont/amrfinderplus.nf'
-include { PLASMIDFINDER }      from '../modules/ont/plasmidfinder.nf'
-include { RESULTS_PUBLISHER } from '../modules/ont/results_publisher.nf'
+include { MERGE_FASTQS }        from '../modules/ont/merge_fastqs.nf'
+include { FASTPLONG }           from '../modules/ont/fastplong.nf'
+include { FLYE }                from '../modules/ont/flye.nf'
+include { MEDAKA }              from '../modules/ont/medaka.nf'
+include { BAKTA }               from '../modules/hbd/bakta.nf'
+include { QUAST }               from '../modules/ont/quast.nf'
+include { RMLST }               from '../modules/hbd/rmlst.nf'
+include { MLST }                from '../modules/hbd/mlst.nf'
+include { AMRFINDERPLUS }       from '../modules/hbd/amrfinderplus.nf'
+include { PLASMIDFINDER }       from '../modules/hbd/plasmidfinder.nf'
+include { RESULTS_PUBLISHER }   from '../modules/hbd/results_publisher.nf'
+include { REPORT }              from '../modules/hbd/report.nf'
 
 
 workflow ONT_PIPELINE {
@@ -23,7 +24,7 @@ workflow ONT_PIPELINE {
 
 if ( file(params.input_dir).toFile().listFiles().find { file -> file.name.startsWith('barcode') } ) {
     
-    merge_out_ch = MERGE_FASTQS(params.input_dir, params.sample_sheet).out
+    merge_out_ch = MERGE_FASTQS(file(params.input_dir), file(params.sample_sheet)).out
     
     reads_ch = merge_out_ch
         .flatten()
@@ -78,6 +79,13 @@ flye_out = FLYE(hq_reads)
 
         MEDAKA(medaka_input)
 
+        def quast_input = hq_reads
+            .join(MEDAKA.out.consensus)
+            .map { sample_id, reads_file, consensus_file ->
+                tuple(sample_id, reads_file, consensus_file)
+            }
+        QUAST(quast_input)
+
         def bakta_input = MEDAKA.out.consensus
             .map { sample_id, consensus_file ->
                 tuple(sample_id, consensus_file, params.db_root)
@@ -92,22 +100,15 @@ flye_out = FLYE(hq_reads)
 
         RMLST(rmlst_input)
 
-        def quast_input = hq_reads
-            .join(MEDAKA.out.consensus)
-            .map { sample_id, reads_file, consensus_file ->
-                tuple(sample_id, reads_file, consensus_file)
-            }
-        QUAST(quast_input)
-
         def mlst_input = MEDAKA.out.consensus
-            .map { consensus_file, sample_id -> // <- ΣΩΣΤΗ ΣΕΙΡΑ
+            .map { consensus_file, sample_id -> 
                     tuple(consensus_file, sample_id)
                 }
         MLST(mlst_input)
 
         def amrfinder_input = MEDAKA.out.consensus
             .join(RMLST.out.species)
-            .map { sample_id, consensus_file, species_file -> // <- ΣΩΣΤΗ ΣΕΙΡΑ
+            .map { sample_id, consensus_file, species_file ->
                     tuple(sample_id, consensus_file, species_file)
                 }
         AMRFINDERPLUS(amrfinder_input)
@@ -129,8 +130,15 @@ flye_out = FLYE(hq_reads)
             .mix(QUAST.out.metrics.map { sid, f -> tuple(sid, f, 'QUAST') })
             .mix(BAKTA.out.tsv.map { sid, f -> tuple(sid, f, 'Bakta')})
             .mix(BAKTA.out.faa.map { sid, f -> tuple(sid, f, 'Bakta') })
+            .mix(RMLST.out.species.map { sid, f -> tuple(sid, f, 'rMLST') })
 
         RESULTS_PUBLISHER(results_input)
+
+        
+        def results_ch = channel.of(file("${params.outdir}/Results"))
+        def sample_ch  = channel.of(file(params.sample_sheet))
+
+        REPORT(results_ch, sample_ch)
 
     emit:
         filtered_reads = hq_reads

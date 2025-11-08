@@ -12,7 +12,6 @@ include { MLST }                from '../modules/hbd/mlst.nf'
 include { AMRFINDERPLUS }       from '../modules/hbd/amrfinderplus.nf'
 include { PLASMIDFINDER }       from '../modules/hbd/plasmidfinder.nf'
 include { RESULTS_PUBLISHER }   from '../modules/hbd/results_publisher.nf'
-include { REPORT }              from '../modules/hbd/report.nf'
 
 
 workflow ONT_PIPELINE {
@@ -30,11 +29,18 @@ if ( file(params.input_dir).toFile().listFiles().find { file -> file.name.starts
         .flatten()
         .map { merged_file -> 
             
-            def sample_id = file(merged_file.baseName).baseName.trim()
+            def combined_id = file(merged_file.baseName).baseName.trim() // Now e.g., "837"
+            
+            // --- ROBUST FIX: Handle "837" or "658_837" ---
+            def sample_id = combined_id
+            if (combined_id.contains('_')) {
+                sample_id = combined_id.split('_')[-1] // Gets "837"
+            }
+            // --- END FIX ---
             
             def merged_dir = merged_file.getParent() 
 
-            println "Processing (Merged): $sample_id with directory: $merged_dir.name"
+            println "Processing (Merged): Combined ID ${combined_id} -> Using Sample_ID ${sample_id}"
             return tuple(sample_id, file(merged_dir)) 
         }
 }
@@ -42,12 +48,20 @@ else {
     def representative_file = file(params.input_dir).toFile().listFiles().find { file -> file.name.endsWith('.fastq.gz') }
 
     if (!representative_file) {
+        // --- TYPO FIX: params.inputdir -> params.input_dir ---
         error "No .fastq.gz files found in input directory: ${params.input_dir}"
     }
 
-    def sample_id = file(representative_file.baseName).baseName.trim()
+    def combined_id = file(representative_file.baseName).baseName.trim() // e.g., "837"
 
-    println "Processing (Direct): $sample_id with directory: $params.input_dir.name"
+    // --- ROBUST FIX: Handle "837" or "658_837" ---
+    def sample_id = combined_id
+    if (combined_id.contains('_')) {
+        sample_id = combined_id.split('_')[-1] // Gets "837"
+    }
+    // --- END FIX ---
+
+    println "Processing (Direct): Combined ID ${combined_id} -> Using Sample_ID ${sample_id}"
     reads_ch = channel.value( tuple(sample_id, file(params.input_dir)) )
 }
 
@@ -59,8 +73,16 @@ def hq_reads = fastp_out.filtered
     .flatten() 
     .map { hq_file ->
         def base = file(hq_file.baseName).baseName
-        def sample_id = base.replace('.hq', '').trim()
+        def combined_id = base.replace('.hq', '').trim() // e.g., "837"
         
+        // --- ROBUST FIX: Handle "837" or "658_837" ---
+        def sample_id = combined_id
+        if (combined_id.contains('_')) {
+            sample_id = combined_id.split('_')[-1] // Gets "837"
+        }
+        // --- END FIX ---
+        
+        println "HQ Reads: Combined ID ${combined_id} -> Using Sample_ID ${sample_id}"
         return tuple(sample_id, hq_file)
     }
 
@@ -101,8 +123,8 @@ flye_out = FLYE(hq_reads)
         RMLST(rmlst_input)
 
         def mlst_input = MEDAKA.out.consensus
-            .map { consensus_file, sample_id -> 
-                    tuple(consensus_file, sample_id)
+            .map { sample_id, consensus_file ->
+                    tuple(sample_id, consensus_file)
                 }
         MLST(mlst_input)
 
@@ -122,23 +144,19 @@ flye_out = FLYE(hq_reads)
 
         def results_input = channel.empty()
 
+        // *** THIS IS THE CRITICAL BLOCK THAT MUST BE SAVED ***
+        // It must send 4 elements: (sid, f, tool_name, params.mode)
         results_input = results_input
-            .mix(MEDAKA.out.consensus.map { sid, f -> tuple(sid, f, 'Fasta') })
-            .mix(AMRFINDERPLUS.out.amrf.map { sid, f -> tuple(sid, f, 'AMRFinderPlus') })
-            .mix(MLST.out.mlst.map { sid, f -> tuple(sid, f, 'MLST') })
-            .mix(PLASMIDFINDER.out.txt.map { sid, f -> tuple(sid, f, 'PlasmidFinder') })
-            .mix(QUAST.out.metrics.map { sid, f -> tuple(sid, f, 'QUAST') })
-            .mix(BAKTA.out.tsv.map { sid, f -> tuple(sid, f, 'Bakta')})
-            .mix(BAKTA.out.faa.map { sid, f -> tuple(sid, f, 'Bakta') })
-            .mix(RMLST.out.species.map { sid, f -> tuple(sid, f, 'rMLST') })
+            .mix(MEDAKA.out.consensus.map { sid, f -> tuple(sid, f, 'Fasta', params.mode) })
+            .mix(AMRFINDERPLUS.out.amrf.map { sid, f -> tuple(sid, f, 'AMRFinderPlus', params.mode) })
+            .mix(MLST.out.mlst.map { sid, f -> tuple(sid, f, 'MLST', params.mode) })
+            .mix(PLASMIDFINDER.out.txt.map { sid, f -> tuple(sid, f, 'PlasmidFinder', params.mode) })
+            .mix(QUAST.out.metrics.map { sid, f -> tuple(sid, f, 'QUAST', params.mode) })
+            .mix(BAKTA.out.tsv.map { sid, f -> tuple(sid, f, 'Bakta', params.mode)})
+            .mix(BAKTA.out.faa.map { sid, f -> tuple(sid, f, 'Bakta', params.mode) })
+            .mix(RMLST.out.tsv.map { sid, f -> tuple(sid, f, 'rMLST', params.mode) })
 
         RESULTS_PUBLISHER(results_input)
-
-        
-        def results_ch = channel.of(file("${params.outdir}/Results"))
-        def sample_ch  = channel.of(file(params.sample_sheet))
-
-        REPORT(results_ch, sample_ch)
 
     emit:
         filtered_reads = hq_reads
@@ -148,4 +166,5 @@ flye_out = FLYE(hq_reads)
         metrics = QUAST.out.metrics
         amrfinderplus = AMRFINDERPLUS.out.amrf
         plasmidfinder = PLASMIDFINDER.out.plasmid
+        published_files = RESULTS_PUBLISHER.out.published_file
 }

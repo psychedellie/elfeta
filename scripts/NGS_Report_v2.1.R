@@ -242,7 +242,7 @@ st_col <- tibble(
 # PlasmidFinder → Plasmid_PlasmidFinder
 plasmid_col <- tibble(
   Plasmid_PlasmidFinder = purrr::map_chr(base_part$Lab_ID, function(iso_id) {
-    tsv <- find_isolate_file(PLASMID_DIR, iso_id, suffix_regex = ".*\\.tsv$")
+    tsv <- find_isolate_file(PLASMID_DIR, iso_id, suffix_regex = ".*\\.txt$")
     read_plasmid_list(tsv)
   })
 )

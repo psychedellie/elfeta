@@ -1,16 +1,13 @@
 #!/usr/bin/env python3
-# Simple rMLST species identification against the PubMLST kiosk endpoint
-# Adds: CLI args, TSV output, supported-organism check, species label file
-# No OAuth — uses the kiosk DB that does not require auth.
-#
-# Dependencies: requests (required), pyyaml (optional; only if --organism_file is used)
-#
-# Example:
-#   ./rmlst_kiosk.py -f contigs.fasta \
-#     -o results/rMLST.tsv \
-#     -O supported_organisms.yaml \
-#     -s results/species.txt \
-#     --db pubmlst_rmlst_seqdef_kiosk
+"""
+rMLST species identification against the PubMLST kiosk endpoint.
+
+✅ Features:
+- Works with kiosk DB (no OAuth)
+- Writes TSV and species label file (always produces both)
+- Supports YAML file for supported AMRFinder organism list
+- Handles unsupported or missing matches gracefully
+"""
 
 import sys
 import os
@@ -23,7 +20,7 @@ from typing import Optional, List, Dict
 import requests
 
 try:
-    import yaml  # only needed if --organism_file is used
+    import yaml  # optional; only needed if --organism_file is used
 except Exception:
     yaml = None
 
@@ -38,11 +35,7 @@ def dbg(enabled: bool, msg: str) -> None:
 
 
 def load_supported(path: str, debug: bool = False) -> Optional[set]:
-    """Load supported organisms from YAML. Accepts:
-       - list of names
-       - dict with top-level key 'amrfinder' containing a list
-       - dict-of-lists (flattens values)
-    """
+    """Load supported organisms from YAML."""
     if not path:
         return None
     if yaml is None:
@@ -67,7 +60,7 @@ def load_supported(path: str, debug: bool = False) -> Optional[set]:
 
 def abbreviate_taxon(taxon: str) -> str:
     parts = (taxon or "").strip().split()
-    if len(parts) >= 2 and parts[0] and parts[1]:
+    if len(parts) >= 2:
         return f"{parts[0][0]}. {parts[1]}"
     return taxon or ""
 
@@ -87,6 +80,7 @@ def post_to_kiosk(db: str, fasta_text: str, timeout: int, debug: bool = False) -
 
 
 def write_tsv(preds: List[Dict[str, str]], out_path: str) -> None:
+    """Write TSV output."""
     os.makedirs(os.path.dirname(out_path), exist_ok=True) if os.path.dirname(out_path) else None
     cols = ["Rank", "Taxon", "Support", "Taxonomy", "Genus", "Species", "Abbreviated"]
     with open(out_path, "w", newline="") as fh:
@@ -107,15 +101,19 @@ def write_tsv(preds: List[Dict[str, str]], out_path: str) -> None:
 def main():
     ap = argparse.ArgumentParser(description="rMLST species ID via PubMLST kiosk API (no OAuth).")
     ap.add_argument("-f", "--file", default="contigs.fasta", help="Assembly contigs (FASTA)")
-    ap.add_argument("-o", "--output", default="rMLST.tsv", help="Output TSV path (default: rMLST.tsv)")
+    ap.add_argument("-o", "--output", default="rMLST.tsv", help="Output TSV path")
     ap.add_argument("-O", "--organism_file", default=None,
-                    help="YAML with supported organism labels (list, dict['amrfinder'], or dict-of-lists)")
+                    help="YAML with supported organism labels (list or dict['amrfinder'])")
     ap.add_argument("-s", "--species_file", default=None,
-                    help="Write detected supported label (Genus or Taxon) to this file (one line)")
+                    help="Write detected supported label to this file (always created)")
     ap.add_argument("--db", default=DEFAULT_DB, help=f"PubMLST DB (default: {DEFAULT_DB})")
-    ap.add_argument("--timeout", type=int, default=120, help="HTTP timeout seconds (default: 120)")
+    ap.add_argument("--timeout", type=int, default=120, help="HTTP timeout seconds")
     ap.add_argument("--debug", action="store_true", help="Verbose debug logging")
     args = ap.parse_args()
+
+    # Debug: confirm argument passing
+    dbg(args.debug, f"species_file={args.species_file}")
+    dbg(args.debug, f"organism_file={args.organism_file}")
 
     # Read FASTA
     try:
@@ -131,34 +129,26 @@ def main():
     resp = post_to_kiosk(args.db, fasta, timeout=args.timeout, debug=args.debug)
 
     if resp.status_code != 200:
-        # Try to show structured error if present
         try:
             err = resp.json()
             print(json.dumps(err, indent=2))
         except Exception:
             print(resp.text)
         print("No taxon prediction returned; not writing TSV.")
-        if args.species_file:
-            print("No supported organism detected; not writing species file.")
-        sys.exit(1)
+        preds_raw = []
+    else:
+        try:
+            data = resp.json()
+            preds_raw = data.get("taxon_prediction", [])
+        except Exception:
+            print("ERROR: Server returned non-JSON.", file=sys.stderr)
+            preds_raw = []
 
-    # Parse response
-    try:
-        data = resp.json()
-    except Exception:
-        print("ERROR: Server returned non-JSON.", file=sys.stderr)
-        sys.exit(1)
+    # Always write TSV (even empty)
+    write_tsv(preds_raw, args.output)
+    print(f"Wrote: {args.output}")
 
-    preds_raw = data.get("taxon_prediction")
-    if not preds_raw:
-        print("No match")
-        # still write empty TSV header for pipeline sanity
-        write_tsv([], args.output)
-        if args.species_file:
-            print("No supported organism detected; not writing species file.")
-        sys.exit(0)
-
-    # Tidy/enrich predictions
+    # Initialize predictions
     preds: List[Dict[str, str]] = []
     for m in preds_raw:
         taxon = (m.get("taxon") or "").strip()
@@ -175,70 +165,49 @@ def main():
             "abbrev": abbreviate_taxon(taxon),
         })
 
-    # Write TSV
-    write_tsv(preds, args.output)
-    print(f"Wrote: {args.output}")
+    # ----------------------------
+    # Write species file (always)
+    # ----------------------------
+    if args.species_file:
+        sd = os.path.dirname(args.species_file)
+        if sd:
+            os.makedirs(sd, exist_ok=True)
 
-    # Supported-organism labeling (optional)
-    label_written = False
-    if args.organism_file:
-        try:
-            supported = load_supported(args.organism_file, debug=args.debug) or set()
-        except Exception as e:
-            print(f"Warning: failed to read organism file: {e}", file=sys.stderr)
-            supported = set()
-        # Choose top-ranked prediction (lowest rank number)
-        try:
-            # Convert rank to numeric for robust ordering
-            def rank_key(p):
-                try:
-                    return float(p["rank"])
-                except Exception:
-                    return float("inf")
+        label_to_write = "Unclassified"
 
-            top = sorted(preds, key=rank_key)[0]
-        except Exception:
-            top = preds[0]
+        if preds:
+            try:
+                def rank_key(p):
+                    try:
+                        return float(p["rank"])
+                    except Exception:
+                        return float("inf")
 
-        # Consider both Genus and full Taxon (with underscore normalization)
-        genus = top.get("genus", "").strip()
-        taxon = top.get("taxon", "").strip()
-        taxon_norm = taxon.replace(" ", "_") if taxon else ""
+                top = sorted(preds, key=rank_key)[0]
+                genus = top.get("genus", "")
+                taxon = top.get("taxon", "")
+                abbrev = top.get("abbrev", "")
 
-        chosen = None
-        if genus and genus in supported:
-            chosen = genus
-        elif taxon_norm and taxon_norm in supported:
-            chosen = taxon_norm
+                if args.organism_file:
+                    try:
+                        supported = load_supported(args.organism_file, debug=args.debug) or set()
+                    except Exception:
+                        supported = set()
+                    taxon_norm = taxon.replace(" ", "_") if taxon else ""
+                    if genus in supported:
+                        label_to_write = genus
+                    elif taxon_norm in supported:
+                        label_to_write = taxon_norm
+                    else:
+                        label_to_write = "Not_available_in_AMRFinderPlus"
+                else:
+                    label_to_write = abbrev or taxon or "Not_available_in_AMRFinderPlus"
+            except Exception as e:
+                print(f"[rMLST] Warning: species label selection failed: {e}", file=sys.stderr)
 
-        if chosen and args.species_file:
-            sd = os.path.dirname(args.species_file)
-            if sd:
-                os.makedirs(sd, exist_ok=True)
-            with open(args.species_file, "w") as fh:
-                fh.write(str(chosen))
-            print(f"Wrote supported species label: {args.species_file}")
-            label_written = True
-
-    if args.species_file and not label_written and not args.organism_file:
-        # If user asked for a species file but didn't provide supported set,
-        # write the top taxon (abbreviated) for convenience.
-        try:
-            def rank_key(p):
-                try:
-                    return float(p["rank"])
-                except Exception:
-                    return float("inf")
-            top = sorted(preds, key=rank_key)[0]
-            label = top["abbrev"] or top["taxon"]
-            sd = os.path.dirname(args.species_file)
-            if sd:
-                os.makedirs(sd, exist_ok=True)
-            with open(args.species_file, "w") as fh:
-                fh.write(label)
-            print(f"Wrote species label: {args.species_file}")
-        except Exception as e:
-            print(f"Warning: failed to write species file: {e}", file=sys.stderr)
+        with open(args.species_file, "w") as fh:
+            fh.write(f"{label_to_write}\n")
+        print(f"Wrote species file: {args.species_file} ({label_to_write})")
 
     sys.exit(0)
 

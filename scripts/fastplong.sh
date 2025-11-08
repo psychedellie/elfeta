@@ -30,7 +30,7 @@ fi
 # run FastpLong directly (Nextflow already activates the env)
 echo "[fastplong] Running FastpLong..." | tee -a "$log_file"
 
-python "$script_dir/parallel.py" \
+python "$script_dir/parallel_ont.py" \
     --input_dir "$input_dir" \
     --out_dir "$output_dir" \
     --thread "$threads" \

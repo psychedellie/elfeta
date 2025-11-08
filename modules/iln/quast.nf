@@ -9,14 +9,14 @@ process QUAST {
     tuple val(sample_id), path(fastq), path(consensus)
     
     output:
-    tuple val(sample_id), file("flye/${sample_id}/quast/report.tsv"), emit: metrics
+    tuple val(sample_id), file("shovill/${sample_id}/quast/report.tsv"), emit: metrics
 
     script:
 
     """
-    bash ${params.scripts_dir}/quast_ont.sh \
+    bash ${params.scripts_dir}/quast_iln.sh \
         "${consensus}" \
-        "flye/${sample_id}/quast" \
+        "shovill/${sample_id}/quast" \
         ${fastq} \
         "${task.cpus}"
     """

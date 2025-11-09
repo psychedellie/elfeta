@@ -1,5 +1,5 @@
 process MEDAKA {
-    tag { sample_id }
+    tag "$sample_id"
     label 'medaka_polishing'
     publishDir "${params.outdir}", mode: 'copy'
     conda "${params.envs_dir}/medaka.yaml"

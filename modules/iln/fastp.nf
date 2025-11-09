@@ -7,7 +7,7 @@ process FASTP {
     path(input_dir)
 
     output:
-    path("fastp/filtered_reads/*.hq.fastq.gz"), emit: filtered  // Changed from filtered_reads/* to fastp/*
+    path("fastp/filtered_reads/*.hq.fastq.gz"), emit: filtered 
     path("fastp/*.html"), emit: html_reports
     path("fastp/*.json"), emit: json_reports  
     path("fastp/*.log"), emit: log_files

@@ -1,5 +1,5 @@
 process FLYE {
-    tag { sample_id }
+    tag "$sample_id"
     label 'flye_assembler'
     publishDir "${params.outdir}", mode: 'copy'
     conda "${params.envs_dir}/flye.yaml"

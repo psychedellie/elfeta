@@ -1,7 +1,7 @@
 process SHOVILL {
-    tag { sample_id }
+    tag "$sample_id"
     label 'shovill_assembler'
-    publishDir "${params.outdir}/Shovill", mode: 'copy'
+    publishDir "${params.outdir}", mode: 'copy'
     conda "${params.envs_dir}/shovill.yaml"
 
     input:

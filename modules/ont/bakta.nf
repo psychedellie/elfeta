@@ -6,7 +6,7 @@ process BAKTA {
     publishDir "${params.outdir}", mode: 'copy'
 
     input:
-    tuple val(sample_id), path(consensus), path(db_root)
+    tuple val(sample_id), path(assembly)
     
     output:
     tuple val(sample_id), path("flye/${sample_id}/bakta"), emit: annot
@@ -14,14 +14,16 @@ process BAKTA {
     tuple val(sample_id), path("flye/${sample_id}/bakta/${sample_id}.faa"), emit: faa
 
     script:
+    def out_dir = "flye/${sample_id}/bakta"
+
     """
-    mkdir -p "flye/${sample_id}/bakta"
+    mkdir -p "out_dir"
     
     bash ${params.scripts_dir}/bakta.sh \
-        "${consensus}" \
-        "flye/${sample_id}/bakta" \
+        "${assembly}" \
+        "${out_dir}" \
         "${sample_id}" \
         "${task.cpus}" \
-        "${db_root}/bakta"
+        "${params.db_root}/bakta"
     """
 }

@@ -9,16 +9,18 @@ process PLASMIDFINDER {
     tuple val(sample_id), path(consensus), path(db_root)
     
     output:
-    tuple val(sample_id), path("flye/${sample_id}/plasmidfinder"), emit: plasmid
-    tuple val(sample_id), path("flye/${sample_id}/plasmidfinder/results.txt"), emit: txt
+    tuple val(sample_id), path("shovill/${sample_id}/plasmidfinder"), emit: plasmid
+    tuple val(sample_id), path("shovill/${sample_id}/plasmidfinder/results.txt"), emit: txt
 
     script:
+    def out_dir = "shovill/${sample_id}/plasmidfinder"
+
     """
-    mkdir -p "flye/${sample_id}/plasmidfinder"
+    mkdir -p "${out_dir}"
     
     bash ${params.scripts_dir}/plasmidfinder.sh \
         "${consensus}" \
-        "flye/${sample_id}/plasmidfinder" \
-        "${db_root}/plasmidfinder" 
+        "${out_dir}" \
+        "${params.db_root}/plasmidfinder" 
     """
 }

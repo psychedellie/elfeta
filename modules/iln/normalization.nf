@@ -1,16 +1,19 @@
 process NORMALIZE_SHORTREADS {
     tag "normalize_shortreads"
     label 'preprocessing'
-    publishDir "${params.outdir}", mode: 'copy'
+    publishDir "${params.outdir}/normalized_fastqs", mode: 'copy'
 
     input:
         path input_dir
 
     output:
         path "samples.tsv", emit: samples_tsv
+        path "*.fastq.gz", emit: normalized_reads
 
     script:
     """
+    mkdir -p normalized_fastqs
+
     # Make sure input path is absolute so find works correctly
     in_dir=\$(realpath "${input_dir}")
     

@@ -12,12 +12,11 @@ process QUAST {
     tuple val(sample_id), file("flye/${sample_id}/quast/report.tsv"), emit: metrics
 
     script:
-
     """
     bash ${params.scripts_dir}/quast_ont.sh \
         "${consensus}" \
         "flye/${sample_id}/quast" \
-        ${fastq} \
+        "${fastq}" \
         "${task.cpus}"
     """
 }

@@ -1,6 +1,6 @@
 process FASTP {
     label 'fastp'
-    publishDir "${params.outdir}", mode: 'copy'
+    publishDir "${params.output_dir}", mode: 'copy'
     conda "${params.envs_dir}/fastp.yaml"
 
     input:

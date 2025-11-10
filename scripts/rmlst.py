@@ -173,7 +173,7 @@ def main():
         if sd:
             os.makedirs(sd, exist_ok=True)
 
-        label_to_write = "Unclassified"
+        label_to_write = "Not_available"
 
         if preds:
             try:

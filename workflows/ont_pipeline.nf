@@ -1,17 +1,17 @@
 #!/usr/bin/env nextflow
 nextflow.enable.dsl=2
 
-include { MERGE_FASTQS }        from '../modules/ont/merge_fastqs.nf'
-include { FASTPLONG }           from '../modules/ont/fastplong.nf'
-include { FLYE }                from '../modules/ont/flye.nf'
-include { MEDAKA }              from '../modules/ont/medaka.nf'
-include { BAKTA }               from '../modules/hbd/bakta.nf'
-include { QUAST }               from '../modules/ont/quast.nf'
-include { RMLST }               from '../modules/hbd/rmlst.nf'
-include { MLST }                from '../modules/hbd/mlst.nf'
-include { AMRFINDERPLUS }       from '../modules/hbd/amrfinderplus.nf'
-include { PLASMIDFINDER }       from '../modules/hbd/plasmidfinder.nf'
-include { RESULTS_PUBLISHER }   from '../modules/hbd/results_publisher.nf'
+include { MERGE_FASTQS }        from '../modules/utils/merge_fastqs.nf'
+include { FASTPLONG }           from '../modules/qc/fastplong.nf'
+include { FLYE }                from '../modules/assembly/flye.nf'
+include { MEDAKA }              from '../modules/assembly/medaka.nf'
+include { QUAST }               from '../modules/assembly/quast_ont.nf'
+include { BAKTA }               from '../modules/typing/bakta.nf'
+include { RMLST }               from '../modules/typing/rmlst.nf'
+include { MLST }                from '../modules/typing/mlst.nf'
+include { AMRFINDERPLUS }       from '../modules/typing/amrfinderplus.nf'
+include { PLASMIDFINDER }       from '../modules/typing/plasmidfinder.nf'
+include { RESULTS_PUBLISHER }   from '../modules/utils/results_publisher.nf'
 
 
 workflow ONT_PIPELINE {
@@ -29,14 +29,11 @@ if ( file(params.input_dir).toFile().listFiles().find { file -> file.name.starts
         .flatten()
         .map { merged_file -> 
             
-            def combined_id = file(merged_file.baseName).baseName.trim() // Now e.g., "837"
-            
-            // --- ROBUST FIX: Handle "837" or "658_837" ---
+            def combined_id = file(merged_file.baseName).baseName.trim()
             def sample_id = combined_id
             if (combined_id.contains('_')) {
-                sample_id = combined_id.split('_')[-1] // Gets "837"
+                sample_id = combined_id.split('_')[-1]
             }
-            // --- END FIX ---
             
             def merged_dir = merged_file.getParent() 
 
@@ -48,18 +45,14 @@ else {
     def representative_file = file(params.input_dir).toFile().listFiles().find { file -> file.name.endsWith('.fastq.gz') }
 
     if (!representative_file) {
-        // --- TYPO FIX: params.inputdir -> params.input_dir ---
         error "No .fastq.gz files found in input directory: ${params.input_dir}"
     }
 
-    def combined_id = file(representative_file.baseName).baseName.trim() // e.g., "837"
-
-    // --- ROBUST FIX: Handle "837" or "658_837" ---
+    def combined_id = file(representative_file.baseName).baseName.trim()
     def sample_id = combined_id
     if (combined_id.contains('_')) {
-        sample_id = combined_id.split('_')[-1] // Gets "837"
+        sample_id = combined_id.split('_')[-1] 
     }
-    // --- END FIX ---
 
     println "Processing (Direct): Combined ID ${combined_id} -> Using Sample_ID ${sample_id}"
     reads_ch = channel.value( tuple(sample_id, file(params.input_dir)) )
@@ -73,14 +66,12 @@ def hq_reads = fastp_out.filtered
     .flatten() 
     .map { hq_file ->
         def base = file(hq_file.baseName).baseName
-        def combined_id = base.replace('.hq', '').trim() // e.g., "837"
+        def combined_id = base.replace('.hq', '').trim()
         
-        // --- ROBUST FIX: Handle "837" or "658_837" ---
         def sample_id = combined_id
         if (combined_id.contains('_')) {
-            sample_id = combined_id.split('_')[-1] // Gets "837"
+            sample_id = combined_id.split('_')[-1]
         }
-        // --- END FIX ---
         
         println "HQ Reads: Combined ID ${combined_id} -> Using Sample_ID ${sample_id}"
         return tuple(sample_id, hq_file)
@@ -94,23 +85,23 @@ flye_out = FLYE(hq_reads)
 
         def medaka_input = hq_reads
             .join(flye_out.assembly)
-            .map { sample_id, reads_file, assembly_file ->
-                println "Medaka input DETAILED - sample: $sample_id, reads: $reads_file, assembly_file: $assembly_file, assembly_exists: ${assembly_file.exists()}"
-                tuple(sample_id, reads_file, assembly_file, params.basecaller)
+            .map { sample_id, fastq, assembly_file ->
+                println "Medaka input DETAILED - sample: $sample_id, reads: $fastq, assembly_file: $assembly_file, assembly_exists: ${assembly_file.exists()}"
+                tuple(sample_id, fastq, assembly_file, params.basecaller)
             }
 
         MEDAKA(medaka_input)
 
         def quast_input = hq_reads
             .join(MEDAKA.out.consensus)
-            .map { sample_id, reads_file, consensus_file ->
-                tuple(sample_id, reads_file, consensus_file)
+            .map { sample_id, fastq, consensus_file ->
+                return tuple( sample_id, fastq, consensus_file )
             }
         QUAST(quast_input)
 
         def bakta_input = MEDAKA.out.consensus
             .map { sample_id, consensus_file ->
-                tuple(sample_id, consensus_file, params.db_root)
+                tuple(sample_id, consensus_file)
             }
 
         BAKTA(bakta_input)
@@ -144,9 +135,8 @@ flye_out = FLYE(hq_reads)
 
         def results_input = channel.empty()
 
-        // *** THIS IS THE CRITICAL BLOCK THAT MUST BE SAVED ***
-        // It must send 4 elements: (sid, f, tool_name, params.mode)
         results_input = results_input
+            .mix(FLYE.out.info.map { sid, f -> tuple(sid, f, 'Fasta/assembly_info', params.mode) })
             .mix(MEDAKA.out.consensus.map { sid, f -> tuple(sid, f, 'Fasta', params.mode) })
             .mix(AMRFINDERPLUS.out.amrf.map { sid, f -> tuple(sid, f, 'AMRFinderPlus', params.mode) })
             .mix(MLST.out.mlst.map { sid, f -> tuple(sid, f, 'MLST', params.mode) })
@@ -154,6 +144,7 @@ flye_out = FLYE(hq_reads)
             .mix(QUAST.out.metrics.map { sid, f -> tuple(sid, f, 'QUAST', params.mode) })
             .mix(BAKTA.out.tsv.map { sid, f -> tuple(sid, f, 'Bakta', params.mode)})
             .mix(BAKTA.out.faa.map { sid, f -> tuple(sid, f, 'Bakta', params.mode) })
+            .mix(BAKTA.out.gbff.map { sid, f -> tuple(sid, f, 'Bakta', params.mode) })
             .mix(RMLST.out.tsv.map { sid, f -> tuple(sid, f, 'rMLST', params.mode) })
 
         RESULTS_PUBLISHER(results_input)

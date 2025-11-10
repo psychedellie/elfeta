@@ -3,16 +3,16 @@ process AMRFINDERPLUS {
     label 'amrfinder'
     conda "${params.envs_dir}/amrfinderplus.yaml"
     
-    publishDir "${params.outdir}", mode: 'copy'
+    publishDir "${params.output_dir}", mode: 'copy'
 
     input:
     tuple val(sample_id), path(consensus), path(species_file)
     
     output:
-    tuple val(sample_id), path("shovill/${sample_id}/${sample_id}_amrf.txt"), emit: amrf
+    tuple val(sample_id), path("samples/${sample_id}/${sample_id}_amrf.txt"), emit: amrf
 
     script:
-    def out_dir = "shovill/${sample_id}"
+    def out_dir = "samples/${sample_id}"
     """
 
     mkdir -p $out_dir

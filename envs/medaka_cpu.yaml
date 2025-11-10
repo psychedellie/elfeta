@@ -1,4 +1,4 @@
-name: medaka
+name: medaka_cpu
 channels: [conda-forge, bioconda]
 dependencies:
   - medaka

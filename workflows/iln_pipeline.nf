@@ -1,28 +1,28 @@
 #!/usr/bin/env nextflow
 nextflow.enable.dsl=2
 
-include { NORMALIZE_SHORTREADS } from '../modules/iln/normalization.nf'
-include { FASTP }                from '../modules/iln/fastp.nf'      
-include { SHOVILL }              from '../modules/iln/shovill.nf'      
-include { QUAST }                from '../modules/iln/quast.nf'
-include { BAKTA }                from '../modules/hbd/bakta.nf'
-include { RMLST }                from '../modules/hbd/rmlst.nf'
-include { MLST }                 from '../modules/hbd/mlst.nf'
-include { AMRFINDERPLUS }        from '../modules/hbd/amrfinderplus.nf'
-include { PLASMIDFINDER }        from '../modules/hbd/plasmidfinder.nf'
-include { RESULTS_PUBLISHER }    from '../modules/hbd/results_publisher.nf'
+include { NORMALIZE_SHORTREADS } from '../modules/utils/normalization.nf'
+include { FASTP }                from '../modules/qc/fastp.nf'      
+include { SHOVILL }              from '../modules/assembly/shovill.nf'      
+include { QUAST }                from '../modules/assembly/quast_iln.nf'
+include { BAKTA }                from '../modules/typing/bakta.nf'
+include { RMLST }                from '../modules/typing/rmlst.nf'
+include { MLST }                 from '../modules/typing/mlst.nf'
+include { AMRFINDERPLUS }        from '../modules/typing/amrfinderplus.nf'
+include { PLASMIDFINDER }        from '../modules/typing/plasmidfinder.nf'
+include { RESULTS_PUBLISHER }    from '../modules/utils/results_publisher.nf'
 
 workflow ILN_PIPELINE {
 
     main:
-        // ---- Step 1: Normalize (only creates samples.tsv) ----
-        NORMALIZE_SHORTREADS(file(params.input_dir))
+        channel.fromPath(params.input_dir).view { file -> "input_dir = ${file}" }
 
-        // ---- Step 2: Pass the ORIGINAL input directory to FASTP ----
-        fastp_out = FASTP(file(params.input_dir))
+        norm_out = NORMALIZE_SHORTREADS(file(params.input_dir))
 
-        // ---- Step 3: Process FASTP filtered reads for Shovill ----
-        // This matches the ONT pipeline structure exactly
+        fastp_out = FASTP(norm_out.samples_tsv.map { tsv_file -> 
+        file(tsv_file).parent 
+        })
+
         def hq_reads = fastp_out.filtered
             .flatten() 
             .map { hq_file ->
@@ -32,7 +32,6 @@ workflow ILN_PIPELINE {
             }
             .groupTuple()
             .map { sample_id, files ->
-                // For Illumina, we need to pair R1 and R2 files
                 def r1 = files.find { file -> file.name.contains('_R1.hq.fastq.gz') }
                 def r2 = files.find { file -> file.name.contains('_R2.hq.fastq.gz') }
                 tuple(sample_id, r1, r2)
@@ -42,14 +41,12 @@ workflow ILN_PIPELINE {
             "HQ Reads for Shovill - Sample_ID: $sample_id, R1: ${r1?.name}, R2: ${r2?.name}" 
         }
 
-        // ---- Assembly with Shovill ----
         shovill_out = SHOVILL(hq_reads)
 
         shovill_out.assembly.view { sample_id, assembly_file -> 
             "Shovill assembly - sample: $sample_id, file: $assembly_file, exists: ${file(assembly_file).exists()}" 
         }
 
-        // ---- QUAST (reads + assembly) ----
         def quast_input = hq_reads
             .join(shovill_out.assembly)
             .map { sample_id, r1, r2, assembly_file ->
@@ -58,21 +55,21 @@ workflow ILN_PIPELINE {
 
         QUAST(quast_input)
 
-        // ---- Annotation ----
         def bakta_input = shovill_out.assembly
             .map { sample_id, assembly_file ->
-                tuple(sample_id, assembly_file, params.db_root)
+                tuple(sample_id, assembly_file)
             }
 
         BAKTA(bakta_input)
 
-        // ---- Typing & resistance ----
         def rmlst_input = shovill_out.assembly
-            .map { sample_id, assembly_file -> tuple(sample_id, assembly_file) }
+            .map { sample_id, assembly_file -> 
+                tuple(sample_id, assembly_file) }
         RMLST(rmlst_input)
 
         def mlst_input = shovill_out.assembly
-            .map { sample_id, assembly_file -> tuple(sample_id, assembly_file) }
+            .map { sample_id, assembly_file -> 
+                tuple(sample_id, assembly_file) }
         MLST(mlst_input)
 
         def amrfinder_input = shovill_out.assembly
@@ -88,17 +85,17 @@ workflow ILN_PIPELINE {
             }
         PLASMIDFINDER(plasmidfinder_input)
 
-        // ---- Collect results ----
         def results_input = channel.empty()
 
         results_input = results_input
-            .mix(shovill_out.assembly.map { sid, f -> tuple(sid, f, 'Assembly') })
-            .mix(AMRFINDERPLUS.out.amrf.map { sid, f -> tuple(sid, f, 'AMRFinderPlus') })
-            .mix(MLST.out.mlst.map { sid, f -> tuple(sid, f, 'MLST') })
-            .mix(PLASMIDFINDER.out.txt.map { sid, f -> tuple(sid, f, 'PlasmidFinder') })
-            .mix(QUAST.out.metrics.map { sid, f -> tuple(sid, f, 'QUAST') })
-            .mix(BAKTA.out.tsv.map { sid, f -> tuple(sid, f, 'Bakta') })
-            .mix(RMLST.out.species.map { sid, f -> tuple(sid, f, 'rMLST') })
+            .mix(AMRFINDERPLUS.out.amrf.map { sid, f -> tuple(sid, f, 'AMRFinderPlus', params.mode) })
+            .mix(MLST.out.mlst.map { sid, f -> tuple(sid, f, 'MLST', params.mode) })
+            .mix(PLASMIDFINDER.out.txt.map { sid, f -> tuple(sid, f, 'PlasmidFinder', params.mode) })
+            .mix(QUAST.out.metrics.map { sid, f -> tuple(sid, f, 'QUAST', params.mode) })
+            .mix(BAKTA.out.tsv.map { sid, f -> tuple(sid, f, 'Bakta', params.mode)})
+            .mix(BAKTA.out.faa.map { sid, f -> tuple(sid, f, 'Bakta', params.mode) })
+            .mix(BAKTA.out.gbff.map { sid, f -> tuple(sid, f, 'Bakta', params.mode) })
+            .mix(RMLST.out.tsv.map { sid, f -> tuple(sid, f, 'rMLST', params.mode) })
 
         RESULTS_PUBLISHER(results_input)
 
@@ -110,5 +107,5 @@ workflow ILN_PIPELINE {
         metrics        = QUAST.out.metrics
         amrfinderplus  = AMRFINDERPLUS.out.amrf
         plasmidfinder  = PLASMIDFINDER.out.plasmid
-        results_dir    = RESULTS_PUBLISHER.out.results_dir
+        published_files = RESULTS_PUBLISHER.out.published_file
 }

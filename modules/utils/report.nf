@@ -2,10 +2,10 @@ process REPORT {
     tag "Generating run report"
     label 'report'
     conda "${params.envs_dir}/r-report.yaml"
-    publishDir "${params.outdir}", mode: 'copy'
+    publishDir "${params.output_dir}", mode: 'copy'
 
     input:
-        path results_dir        // This is params.outdir (e.g., 'analysis/')
+        path results_dir        // This is params.output_dir (e.g., 'analysis/')
         path sample_sheet
         val completion_trigger  // This ensures we wait for pipeline completion
         val mode                // This is the 'params.mode' (e.g., "ont")

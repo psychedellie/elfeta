@@ -1,6 +1,6 @@
 process FASTPLONG {
     label 'fastplong'
-    publishDir "${params.outdir}", mode: 'copy'
+    publishDir "${params.output_dir}", mode: 'copy'
     conda "${params.envs_dir}/fastplong.yaml"
 
     input:

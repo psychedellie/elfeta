@@ -1,6 +1,3 @@
-# =========================================================
-# Parse positional arguments
-# =========================================================
 args <- commandArgs(trailingOnly = TRUE)
 
 if (length(args) < 7) {
@@ -23,9 +20,6 @@ cat("RMLST_DIR:    ", RMLST_DIR, "\n")
 cat("PLASMID_DIR:  ", PLASMID_DIR, "\n")
 cat("AMR_DIR:      ", AMR_DIR, "\n")
 
-# =========================================================
-# 📦 Packages
-# =========================================================
 suppressPackageStartupMessages({
   if (!requireNamespace("readr",    quietly = TRUE)) install.packages("readr")
   if (!requireNamespace("dplyr",    quietly = TRUE)) install.packages("dplyr")
@@ -36,9 +30,7 @@ suppressPackageStartupMessages({
 })
 library(readr); library(dplyr); library(tibble); library(purrr); library(stringr); library(openxlsx)
 
-# =========================================================
-# 🧱 Final report columns (underscored by design)
-# =========================================================
+
 final_columns <- c(
   "Lab_ID",
   "Original_ID",
@@ -62,22 +54,17 @@ final_columns <- c(
   "Comments"
 )
 
-# =========================================================
-# 🔎 Utility helpers
-# =========================================================
 find_isolate_file <- function(dir_path, isolate_id, suffix_regex = ".*\\.(tsv|txt)$") {
   patt  <- paste0("^", isolate_id, suffix_regex)
   files <- list.files(dir_path, pattern = patt, full.names = TRUE, ignore.case = TRUE)
   if (length(files) >= 1) files[1] else NA_character_
 }
 
-# -------- QUAST: robust reader (2-col key/value OR wide) --------
 read_quast_metrics <- function(tsv_path) {
   needed <- c("# contigs","Total length","N50","Avg. coverage depth","GC (%)","Largest contig")
   if (!file.exists(tsv_path)) return(setNames(as.list(rep(NA, length(needed))), needed))
   df <- suppressMessages(readr::read_tsv(tsv_path, show_col_types = FALSE, progress = FALSE))
   
-  # Case 1: 2-column key/value table
   if (ncol(df) == 2) {
     keys <- trimws(as.character(df[[1]]))
     vals <- df[[2]]; names(vals) <- keys
@@ -86,12 +73,11 @@ read_quast_metrics <- function(tsv_path) {
     return(out)
   }
   
-  # Case 2: wide table with columns
   out <- setNames(vector("list", length(needed)), needed)
   for (k in needed) out[[k]] <- if (k %in% names(df)) df[[k]][1] else NA
   out
 }
-# -------- MLST: ST from row 1, col 3 --------
+
 read_mlst_st <- function(tsv_path) {
   if (!file.exists(tsv_path)) return(NA_character_)
   df <- tryCatch(
@@ -101,15 +87,12 @@ read_mlst_st <- function(tsv_path) {
     error = function(e) NULL
   )
   if (is.null(df) || nrow(df) < 1) return(NA_character_)
-  # Primary: row 1, col 3
   if (ncol(df) >= 3 && !is.na(df[1,3]) && nzchar(df[1,3])) return(as.character(df[1,3]))
-  # Fallback: extract first standalone number from row 1
   row1 <- paste(df[1, ], collapse = " ")
   m <- stringr::str_extract(row1, "(?<!\\d)\\d+(?!\\d)")
   ifelse(is.na(m) || m == "", NA_character_, m)
 }
 
-# -------- rMLST: Organism from 'Taxon' --------
 read_rmlst_taxon <- function(tsv_path) {
   if (!file.exists(tsv_path)) return(NA_character_)
   df <- tryCatch(readr::read_tsv(tsv_path, show_col_types = FALSE, progress = FALSE),
@@ -119,7 +102,7 @@ read_rmlst_taxon <- function(tsv_path) {
   ifelse(is.na(val) || val == "", NA_character_, as.character(val))
 }
 
-# -------- PlasmidFinder: within-contig "/" (keep dupes); between-contigs "; " --------
+
 read_plasmid_list <- function(tsv_path) {
   if (!file.exists(tsv_path)) return(NA_character_)
   df <- tryCatch(readr::read_tsv(tsv_path, show_col_types = FALSE, progress = FALSE),
@@ -136,14 +119,7 @@ read_plasmid_list <- function(tsv_path) {
   } else paste(df$Plasmid, collapse = "; ")
 }
 
-# -------- AMRFinderPlus: flexible (keeps duplicates; order preserved) --------
-# Filters:
-#   Scope == scope_wanted
-#   Type  == type_wanted
-#   (optional) Subtype %in% subtype_wanted
-#   coverage of reference >= 90
-#   %identity of reference >= 90
-# Output column: "Element symbol" or "Subclass"
+
 read_amr_column <- function(txt_path, scope_wanted, type_wanted, subtype_wanted = NULL, out_col = "Element symbol") {
   if (!file.exists(txt_path)) return(NA_character_)
   df <- tryCatch(readr::read_tsv(txt_path, show_col_types = FALSE, progress = FALSE),
@@ -181,21 +157,12 @@ read_amr_column <- function(txt_path, scope_wanted, type_wanted, subtype_wanted 
   paste(outval[idx], collapse = ", ")
 }
 
-# =========================================================
-# 📥 Read sample sheet (expects NEW column names!)
-# =========================================================
 sample_df <- readr::read_csv(SAMPLE_SHEET, show_col_types = FALSE, progress = FALSE, trim_ws = TRUE)
 
-# Required headers in sample_sheet.csv:
-# Lab_ID, Original_ID, Index, Platform, Expected_Organism, Comments
 req_cols <- c("Lab_ID", "Original_ID", "Index", "Platform", "Expected_Organism", "Comments")
 missing <- setdiff(req_cols, names(sample_df))
 if (length(missing)) stop(sprintf("Missing expected columns in sample_sheet.csv: %s", paste(missing, collapse = ", ")))
 
-# =========================================================
-# 🏗️ Build each part
-# =========================================================
-# Base columns (directly use final names)
 base_part <- sample_df %>%
   transmute(
     Lab_ID,
@@ -206,7 +173,6 @@ base_part <- sample_df %>%
     Comments
   )
 
-# QUAST → assembly metrics
 quast_to_final <- c(
   "# contigs"           = "Contig_Num",
   "Total length"        = "Genome_Length",
@@ -276,9 +242,6 @@ vir_col <- tibble(
   })
 )
 
-# =========================================================
-# 🧩 Assemble, order, and types
-# =========================================================
 final_report <- bind_cols(
   base_part %>% select(Lab_ID, Original_ID, Index, Platform),
   quast_part,
@@ -293,28 +256,22 @@ final_report <- bind_cols(
   base_part %>% select(Comments)
 )
 
-# ensure all planned columns exist and in the right order
 missing_cols <- setdiff(final_columns, names(final_report))
 if (length(missing_cols)) final_report[missing_cols] <- NA
 final_report <- final_report[, final_columns]
 
-# =========================================================
-# 🔧 Post-processing per your requests (fixed parse_number inputs)
-# =========================================================
 final_report <- final_report %>%
   mutate(
-    # Depth -> round to integer + "x"
     Depth = {
       v <- suppressWarnings(readr::parse_number(as.character(Depth)))
       ifelse(is.na(v), NA_character_, paste0(round(v), "x"))
     },
-    # Genome_Length (bp) -> Mbp with 1 decimal
     Genome_Length = {
-      v <- suppressWarnings(readr::parse_number(as.character(Genome_Length)))  # handle numeric/character
+      v <- suppressWarnings(readr::parse_number(as.character(Genome_Length)))
       mb <- v / 1e6
       ifelse(is.na(mb), NA_character_, sprintf("%.1f Mbp", mb))
     },
-    # Predicted_Phenotype -> unique, order-preserved
+
     Predicted_Phenotype = {
       sapply(Predicted_Phenotype, function(x) {
         if (is.na(x) || !nzchar(x)) return(NA_character_)
@@ -331,21 +288,15 @@ final_report <- final_report %>%
     }
   )
 
-# 👀 Preview
 print(final_report, n = 50)
 
-# =========================================================
-# 💾 Save to XLSX with bold headers (no wrap) and wrapped contents
-# =========================================================
 out_xlsx <- file.path(BASE_DIR, "final_report_complete.xlsx")
 
 wb <- createWorkbook()
 addWorksheet(wb, "final_report")
 
-# Write data
 writeData(wb, "final_report", final_report)
 
-# Header style: bold, centered, no wrap
 headerStyle <- createStyle(textDecoration = "bold", halign = "center", valign = "center", wrapText = FALSE)
 addStyle(
   wb, "final_report", style = headerStyle,
@@ -353,7 +304,6 @@ addStyle(
   gridExpand = TRUE
 )
 
-# Wrap text in long-text columns (data only, rows 2+)
 wrap_cols <- c(
   "ARGs (>90% cov, >90% ID, AMRFinderPlus)",
   "Point_Mutations",
@@ -373,7 +323,6 @@ if (length(wrap_cols_idx)) {
   )
 }
 
-# Auto-size all columns to fit header + content
 setColWidths(wb, "final_report", cols = 1:ncol(final_report), widths = "auto")
 
 saveWorkbook(wb, out_xlsx, overwrite = TRUE)

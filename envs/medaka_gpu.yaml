@@ -1,0 +1,9 @@
+name: medaka_gpu
+channels: [pytorch, nvidia, bioconda, conda-forge]
+dependencies:
+  - python=3.10
+  - medaka
+  - pytorch
+  - torchvision
+  - torchaudio
+  - "pytorch-cuda>=11.8,<13"  # GPU-enabled build (auto-detects if CUDA available)

@@ -1,7 +1,7 @@
 process NORMALIZE_SHORTREADS {
     tag "normalize_shortreads"
     label 'preprocessing'
-    publishDir "${params.outdir}/normalized_fastqs", mode: 'copy'
+    publishDir "${params.output_dir}/normalized_fastqs", mode: 'copy'
 
     input:
         path input_dir

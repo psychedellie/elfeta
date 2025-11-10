@@ -3,17 +3,17 @@ process PLASMIDFINDER {
     label 'plasmid_id'
     conda "${params.envs_dir}/gep-finders.yaml"
     
-    publishDir "${params.outdir}", mode: 'copy'
+    publishDir "${params.output_dir}", mode: 'copy'
 
     input:
     tuple val(sample_id), path(consensus), path(db_root)
     
     output:
-    tuple val(sample_id), path("shovill/${sample_id}/plasmidfinder"), emit: plasmid
-    tuple val(sample_id), path("shovill/${sample_id}/plasmidfinder/results.txt"), emit: txt
+    tuple val(sample_id), path("samples/${sample_id}/plasmidfinder"), emit: plasmid
+    tuple val(sample_id), path("samples/${sample_id}/plasmidfinder/results.txt"), emit: txt
 
     script:
-    def out_dir = "shovill/${sample_id}/plasmidfinder"
+    def out_dir = "samples/${sample_id}/plasmidfinder"
 
     """
     mkdir -p "${out_dir}"

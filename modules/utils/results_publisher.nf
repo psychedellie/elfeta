@@ -2,7 +2,7 @@ process RESULTS_PUBLISHER {
     tag "$tool on $sample_id"
     label 'results_publisher'
 
-    publishDir "${params.outdir}/Results", mode: 'copy'
+    publishDir "${params.output_dir}/Results", mode: 'copy'
     input:
         tuple val(sample_id), path(result_file), val(tool), val(mode)
 

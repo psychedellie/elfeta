@@ -19,4 +19,10 @@ if [ -d $output_dir ]; then
     rm -rf $output_dir
 fi
 
+# If model is empty, use a default
+if [ -z "$model" ] || [ "$model" == "null" ] || [ "$model" == "None" ]; then
+    echo "No model specified, using default: r1041_e82_400bps_sup_v5.2.0"
+    model="r1041_e82_400bps_sup_v5.2.0"
+fi
+
 medaka_consensus -i $np_raw_file -d $assembly -o $output_dir -t $threads --bacteria -m $model

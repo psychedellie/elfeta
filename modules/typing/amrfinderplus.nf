@@ -24,7 +24,7 @@ process AMRFINDERPLUS {
         "${consensus}" \
         "${out_dir}/${sample_id}_amrf.txt" \
         "\$SPECIES_NAME" \
-        "${task.cpus}"
-        "${params.db_root}/amrfinder-db"
+        "${task.cpus}" \
+        "${params.db_root}/amrfinder-db/latest"
     """
 }

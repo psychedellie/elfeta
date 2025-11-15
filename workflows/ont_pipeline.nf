@@ -60,9 +60,9 @@ else {
 
 reads_ch.view { row -> "Final input - Sample_ID: ${row[0]}, Directory: ${row[1]}.name" }
 
-fastp_out = FASTPLONG( reads_ch.map { row -> row[1] }.unique() )
+fastplong_out = FASTPLONG( reads_ch.map { row -> row[1] }.unique() )
 
-def hq_reads = fastp_out.filtered
+def hq_reads = fastplong_out.filtered
     .flatten() 
     .map { hq_file ->
         def base = file(hq_file.baseName).baseName

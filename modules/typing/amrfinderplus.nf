@@ -25,5 +25,6 @@ process AMRFINDERPLUS {
         "${out_dir}/${sample_id}_amrf.txt" \
         "\$SPECIES_NAME" \
         "${task.cpus}"
+        "${params.db_root}/amrfinder-db"
     """
 }

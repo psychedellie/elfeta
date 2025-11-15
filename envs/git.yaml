@@ -1,0 +1,4 @@
+name: git
+channels: [conda-forge]
+dependencies:
+  - git

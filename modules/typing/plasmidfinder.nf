@@ -11,6 +11,7 @@ process PLASMIDFINDER {
     output:
     tuple val(sample_id), path("samples/${sample_id}/plasmidfinder"), emit: plasmid
     tuple val(sample_id), path("samples/${sample_id}/plasmidfinder/results.txt"), emit: txt
+    tuple val(sample_id), path("samples/${sample_id}/plasmidfinder/results_tab.tsv"), emit: tsv
 
     script:
     def out_dir = "samples/${sample_id}/plasmidfinder"

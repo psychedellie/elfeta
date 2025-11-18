@@ -9,8 +9,9 @@ include { FLYE }                 from '../modules/assembly/flye.nf'
 include { MEDAKA }               from '../modules/assembly/medaka.nf'
 include { BWA_INDEX }            from '../modules/assembly/bwa_index.nf'
 include { BWA_MEM }              from '../modules/assembly/bwa_mem.nf'
-include { POLYPOLISH }           from '../modules/assembly/polypolish.nf'
-include { QUAST }                from '../modules/assembly/quast_iln.nf'
+include { POLYPOLISH_FILTER}     from '../modules/assembly/polypolish_filter.nf'
+include { POLYPOLISH_POLISH }    from '../modules/assembly/polypolish_polish.nf'
+include { QUAST }                from '../modules/assembly/quast_ont.nf'
 include { BAKTA }                from '../modules/typing/bakta.nf'
 include { RMLST }                from '../modules/typing/rmlst.nf'
 include { MLST }                 from '../modules/typing/mlst.nf'
@@ -21,149 +22,208 @@ include { RESULTS_PUBLISHER }    from '../modules/utils/results_publisher.nf'
 workflow HBD_PIPELINE {
 
     main:
-        channel.fromPath(params.input_dir).view { file -> "input_dir = ${file}" }
+        channel
+            .fromPath(params.input_dir)
+            .view { input_path -> "Input directory: ${input_path}" }
 
-        norm_out = NORMALIZE_SHORTREADS(file(params.input_dir))
+        def normalization_out = NORMALIZE_SHORTREADS(file(params.input_dir))
 
-        fastp_out = FASTP(norm_out.samples_tsv.map { tsv_file -> 
-            file(tsv_file).parent 
-        })
+        def fastp_out = FASTP(
+            normalization_out.samples_tsv.map { tsv_path -> 
+                file(tsv_path).parent 
+            }
+        )
 
         def hq_reads_iln = fastp_out.filtered
-            .flatten() 
-            .map { hq_file ->
-                def base = file(hq_file.baseName).baseName
-                def sample_id = base.replace('_R1.hq', '').replace('_R2.hq', '').trim()
-                return tuple(sample_id, hq_file)
+            .flatten()
+            .map { fastq_path ->
+                def base_name = file(fastq_path.baseName).baseName
+                def sample_id = base_name
+                    .replace('_R1.hq', '')
+                    .replace('_R2.hq', '')
+                    .trim()
+                tuple(sample_id, fastq_path)
             }
             .groupTuple()
-            .map { sample_id, files ->
-                def r1 = files.find { file -> file.name.contains('_R1.hq.fastq.gz') }
-                def r2 = files.find { file -> file.name.contains('_R2.hq.fastq.gz') }
-                tuple(sample_id, r1, r2)
+            .map { sample_id, fastq_files ->
+                def r1_file = fastq_files.find { candidate -> candidate.name.contains('_R1.hq.fastq.gz') }
+                def r2_file = fastq_files.find { candidate -> candidate.name.contains('_R2.hq.fastq.gz') }
+                tuple(sample_id, r1_file, r2_file)
             }
 
-        hq_reads_iln.view { sample_id, r1, r2 -> 
-            "HQ Reads for bwa-mem2 - Sample_ID: $sample_id, R1: ${r1?.name}, R2: ${r2?.name}"
+        hq_reads_iln.view { sample_id, r1_file, r2_file ->
+            "HQ reads (short) -> ${sample_id} | R1=${r1_file?.name} | R2=${r2_file?.name}"
         }
 
-        def reads_ch
+        def reads_channel
 
-        if ( file(params.input_dir).toFile().listFiles().find { file -> file.name.startsWith('barcode') } ) {
-            
-            merge_out_ch = MERGE_FASTQS(file(params.input_dir), file(params.sample_sheet)).out
-            
-            reads_ch = merge_out_ch
+        def has_barcodes = file(params.input_dir)
+            .toFile()
+            .listFiles()
+            .find { entry -> entry.name.startsWith('barcode') }
+
+        if (has_barcodes) {
+
+            def merge_out = MERGE_FASTQS(file(params.input_dir), file(params.sample_sheet)).out
+
+            reads_channel = merge_out
                 .flatten()
-                .map { merged_file -> 
-                    
-                    def combined_id = file(merged_file.baseName).baseName.trim()
-                    def sample_id = combined_id
-                    if (combined_id.contains('_')) {
-                        sample_id = combined_id.split('_')[-1]
-                    }
-                    
-                    def merged_dir = merged_file.getParent() 
-
-                    println "Processing (Merged): Combined ID ${combined_id} -> Using Sample_ID ${sample_id}"
-                    return tuple(sample_id, file(merged_dir)) 
+                .map { merged_fastq ->
+                    def base_name = file(merged_fastq.baseName).baseName
+                    def sample_id = base_name.contains('_') ? base_name.split('_')[-1] : base_name
+                    def parent_dir = merged_fastq.parent
+                    println "Merging barcoded reads: ${base_name} -> ${sample_id}"
+                    tuple(sample_id, file(parent_dir))
                 }
-        }
-        else {
-            def representative_file = file(params.input_dir).toFile().listFiles().find { file -> file.name.endsWith('.fastq.gz') }
 
-            if (!representative_file) {
-                error "No .fastq.gz files found in input directory: ${params.input_dir}"
+        } else {
+
+            def representative = file(params.input_dir)
+                .toFile()
+                .listFiles()
+                .find { entry -> entry.name.endsWith('.fastq.gz') }
+
+            if (!representative) {
+                error "No .fastq.gz files found in ${params.input_dir}"
             }
 
-            def combined_id = file(representative_file.baseName).baseName.trim()
-            def sample_id = combined_id
-            if (combined_id.contains('_')) {
-                sample_id = combined_id.split('_')[-1] 
-            }
+            def base_name = file(representative.baseName).baseName
+            def sample_id = base_name.contains('_') ? base_name.split('_')[-1] : base_name
+            println "Processing direct reads: ${base_name} -> ${sample_id}"
 
-            println "Processing (Direct): Combined ID ${combined_id} -> Using Sample_ID ${sample_id}"
-            reads_ch = channel.value( tuple(sample_id, file(params.input_dir)) )
+            reads_channel = channel.value(tuple(sample_id, file(params.input_dir)))
         }
 
-        reads_ch.view { row -> "Final input - Sample_ID: ${row[0]}, Directory: ${row[1]}.name" }
+        reads_channel.view { sample_id, directory_path ->
+            "Final reads input -> ${sample_id} | Directory=${directory_path.name}"
+        }
 
-        fastplong_out = FASTPLONG( reads_ch.map { row -> row[1] }.unique() )
+        def fastplong_out = FASTPLONG(reads_channel.map { row -> row[1] }.unique())
 
         def hq_reads_ont = fastplong_out.filtered
             .flatten()
-            .filter { hq_file ->  
-                !hq_file.name.contains('_R1.hq') && !hq_file.name.contains('_R2.hq')
-            }                     
-            .map { hq_file ->
-                def base = file(hq_file.baseName).baseName
-                def combined_id = base.replace('.hq', '').trim()
-                
-                def sample_id = combined_id
-                if (combined_id.contains('_')) {
-                    sample_id = combined_id.split('_')[-1]
-                }
-                
-                println "HQ Reads: Combined ID ${combined_id} -> Using Sample_ID ${sample_id}"
-                return tuple(sample_id, hq_file)
+            .filter { fastq_path ->
+                !fastq_path.name.contains('_R1.hq') && !fastq_path.name.contains('_R2.hq')
+            }
+            .map { fastq_path ->
+                def base_name = file(fastq_path.baseName).baseName
+                def sample_id = base_name.replace('.hq', '').split('_')[-1].trim()
+                tuple(sample_id, fastq_path)
             }
 
-        hq_reads_ont.view { row -> "HQ Reads for FLYE - Sample_ID: ${row[0]}, File: ${row[1].name}" }
-
-        flye_out = FLYE(hq_reads_ont)
-
-        def medaka_input = hq_reads_ont
-            .join(flye_out.assembly)
-            .map { sample_id, fastq, assembly_file ->
-                println "Medaka input DETAILED - sample: $sample_id, reads: $fastq, assembly_file: $assembly_file, assembly_exists: ${assembly_file.exists()}"
-                tuple(sample_id, fastq, assembly_file, params.basecaller)
-            }
-
-        medaka_out = MEDAKA(medaka_input)
-
-        def bwa_ind_input = medaka_out.consensus
-        bwa_index_out = BWA_INDEX(bwa_ind_input) 
-        
-        def bwa_mem_input = bwa_index_out.index.join(hq_reads_iln)
-        
-        bwa_mem_out = BWA_MEM(bwa_mem_input)
-
-// 1. Join the bam and bai channels from BWA_MEM
-def bwa_alignments = bwa_mem_out.bam.join(bwa_mem_out.bai)
-// bwa_alignments channel is now: [sample_id, bam_file, bai_file]
-
-// 2. Join assembly with alignments, then add args
-def polypolish_input = medaka_out.consensus
-    .join(bwa_alignments)
-    .map { sample_id, assembly, bam, bai ->
-        // Create the 5-part tuple that your module expects
-        tuple(sample_id, assembly, bam, bai, params.polypolish_args) 
-    }
-polypolish_out = POLYPOLISH(polypolish_input)
-
-        def final_assembly = polypolish_out.assembly
-        final_assembly.view { sample_id, final_assembly_file ->
-            "Hybrid Assembly Complete - Sample: $sample_id, Assembly: ${final_assembly_file.name}"
+        hq_reads_ont.view { sample_id, fastq_path ->
+            "HQ reads (long) -> ${sample_id} | File=${fastq_path.name}"
         }
 
-        def results_input = channel.empty()
-        results_input = results_input
+        def flye_out = FLYE(hq_reads_ont)
+
+        def medaka_in = hq_reads_ont
+            .join(flye_out.assembly)
+            .map { sample_id, long_fastq, flye_assembly ->
+                tuple(sample_id, long_fastq, flye_assembly, params.basecaller)
+            }
+
+        MEDAKA(medaka_in)
+
+        def bwa_index_out = BWA_INDEX(MEDAKA.out.consensus)
+
+        def bwa_mem_in = bwa_index_out.index
+            .join(hq_reads_iln)
+            .map { sample_id, _consensus_fasta, index_dir, r1_file, r2_file ->
+        def index_prefix = file("${index_dir}/${sample_id}")
+        tuple(sample_id, index_prefix, r1_file, r2_file)
+                }
+        bwa_mem_in.view { sample_id, prefix, r1, r2 ->
+            "BWA_MEM INPUT -> sample_id: ${sample_id} | prefix: ${prefix} | r1: ${r1.name} | r2: ${r2.name}"
+            }
+
+        def bwa_mem_out = BWA_MEM(bwa_mem_in)
+
+        def polypolish_filter_in = bwa_mem_out.sam1.join(bwa_mem_out.sam2)
+
+        def filter_out = POLYPOLISH_FILTER(polypolish_filter_in)
+
+        def polypolish_in = MEDAKA.out.consensus
+            .join(filter_out.filtered_sams)
+            .map { sample_id, assembly_fasta, filtered_1_sam, filtered_2_sam ->
+                tuple(sample_id, assembly_fasta, filtered_1_sam, filtered_2_sam, params.polypolish_args)
+            }
+
+        POLYPOLISH_POLISH(polypolish_in)
+
+        def final_assembly = POLYPOLISH_POLISH.out.assembly
+
+        final_assembly.view { sample_id, assembly_file ->
+            "Hybrid Assembly Complete -> ${sample_id} | ${assembly_file.name}"
+        }
+
+        def quast_in = hq_reads_ont
+            .join(final_assembly)
+            .map { sample_id, long_fastq, consensus_file ->
+                return tuple( sample_id, long_fastq, consensus_file )
+            }
+        QUAST(quast_in)
+
+        def bakta_in = final_assembly
+            .map { sample_id, consensus_file ->
+                tuple(sample_id, consensus_file)
+            }
+
+        BAKTA(bakta_in)
+
+        def rmlst_in = final_assembly
+            .map { sample_id, consensus_file ->
+                tuple(sample_id, consensus_file)
+            }
+
+        RMLST(rmlst_in)
+
+        def mlst_in = final_assembly
+            .map { sample_id, consensus_file ->
+                    tuple(sample_id, consensus_file)
+                }
+        MLST(mlst_in)
+
+        def amrfinder_in = final_assembly
+            .join(RMLST.out.species)
+            .map { sample_id, consensus_file, species_file ->
+                    tuple(sample_id, consensus_file, species_file)
+                }
+        AMRFINDERPLUS(amrfinder_in)
+
+        def plasmidfinder_in = final_assembly
+            .map { sample_id, consensus_file ->
+                tuple(sample_id, consensus_file, params.db_root)
+            }
+
+        PLASMIDFINDER(plasmidfinder_in)
+
+        def results_in = channel.empty()
+
+        results_in = results_in
+            .mix(FLYE.out.info.map { sid, f -> tuple(sid, f, 'Fasta/assembly_info', params.mode) })
             .mix(final_assembly.map { sid, f -> tuple(sid, f, 'Fasta', params.mode) })
+            .mix(AMRFINDERPLUS.out.amrf.map { sid, f -> tuple(sid, f, 'AMRFinderPlus', params.mode) })
+            .mix(MLST.out.mlst.map { sid, f -> tuple(sid, f, 'MLST', params.mode) })
+            .mix(PLASMIDFINDER.out.tsv.map { sid, f -> tuple(sid, f, 'PlasmidFinder', params.mode) })
+            .mix(QUAST.out.metrics.map { sid, f -> tuple(sid, f, 'QUAST', params.mode) })
+            .mix(BAKTA.out.tsv.map { sid, f -> tuple(sid, f, 'Bakta', params.mode)})
+            .mix(BAKTA.out.faa.map { sid, f -> tuple(sid, f, 'Bakta', params.mode) })
+            .mix(BAKTA.out.gbff.map { sid, f -> tuple(sid, f, 'Bakta', params.mode) })
+            .mix(RMLST.out.tsv.map { sid, f -> tuple(sid, f, 'rMLST', params.mode) })
 
-        RESULTS_PUBLISHER(results_input)
-
-
+        RESULTS_PUBLISHER(results_in)
+    //----------------------------------------------------------------------
+    // 7. Workflow outputs
+    //----------------------------------------------------------------------
     emit:
         filtered_ont_reads = hq_reads_ont
         filtered_iln_reads = hq_reads_iln
-        assembly           = final_assembly       
-        published_files    = RESULTS_PUBLISHER.out.published_file 
-        annotation         = channel.empty()
-        MLST               = channel.empty()
-        metrics            = channel.empty()
-        amrfinderplus      = channel.empty()
-        plasmidfinder      = channel.empty()
-        }
-        
-        
-    
+        assembly           = final_assembly
+        annotation         = BAKTA.out.annot
+        MLST               = MLST.out.mlst
+        metrics            = QUAST.out.metrics
+        amrfinderplus      = AMRFINDERPLUS.out.amrf
+        plasmidfinder      = PLASMIDFINDER.out.plasmid
+        published_files    = RESULTS_PUBLISHER.out.published_file
+}

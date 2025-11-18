@@ -41,71 +41,78 @@ workflow ILN_PIPELINE {
             "HQ Reads for Shovill - Sample_ID: $sample_id, R1: ${r1?.name}, R2: ${r2?.name}" 
         }
 
-        shovill_out = SHOVILL(hq_reads)
+        SHOVILL(hq_reads)
 
-        shovill_out.assembly.view { sample_id, assembly_file -> 
+        def final_assembly = SHOVILL.out.assembly
+        final_assembly.view { sample_id, assembly_file -> 
             "Shovill assembly - sample: $sample_id, file: $assembly_file, exists: ${file(assembly_file).exists()}" 
         }
-
-        def quast_input = hq_reads
-            .join(shovill_out.assembly)
+        
+        def quast_in = hq_reads
+            .join(final_assembly)
             .map { sample_id, r1, r2, assembly_file ->
                 tuple(sample_id, r1, r2, assembly_file)
             }
 
-        QUAST(quast_input)
+        QUAST(quast_in)
 
-        def bakta_input = shovill_out.assembly
+        def bakta_in = final_assembly
             .map { sample_id, assembly_file ->
                 tuple(sample_id, assembly_file)
-            }
+                }
 
-        BAKTA(bakta_input)
+        BAKTA(bakta_in)
 
-        def rmlst_input = shovill_out.assembly
+        def rmlst_in = final_assembly
             .map { sample_id, assembly_file -> 
-                tuple(sample_id, assembly_file) }
-        RMLST(rmlst_input)
+                tuple(sample_id, assembly_file) 
+                }
 
-        def mlst_input = shovill_out.assembly
+        RMLST(rmlst_in)
+
+        def mlst_in = final_assembly
             .map { sample_id, assembly_file -> 
-                tuple(sample_id, assembly_file) }
-        MLST(mlst_input)
+                tuple(sample_id, assembly_file) 
+                }
 
-        def amrfinder_input = shovill_out.assembly
+        MLST(mlst_in)
+
+        def amrfinder_in = final_assembly
             .join(RMLST.out.species)
             .map { sample_id, assembly_file, species_file ->
                 tuple(sample_id, assembly_file, species_file)
-            }
-        AMRFINDERPLUS(amrfinder_input)
+                }
 
-        def plasmidfinder_input = shovill_out.assembly
+        AMRFINDERPLUS(amrfinder_in)
+
+        def plasmidfinder_in = final_assembly
             .map { sample_id, assembly_file ->
                 tuple(sample_id, assembly_file, params.db_root)
             }
-        PLASMIDFINDER(plasmidfinder_input)
+        PLASMIDFINDER(plasmidfinder_in)
 
-        def results_input = channel.empty()
+        def results_in = channel.empty()
 
-        results_input = results_input
+        results_in = results_in
+            .mix(final_assembly.map { sid, f -> tuple(sid, f, 'Fasta', params.mode) })
             .mix(AMRFINDERPLUS.out.amrf.map { sid, f -> tuple(sid, f, 'AMRFinderPlus', params.mode) })
             .mix(MLST.out.mlst.map { sid, f -> tuple(sid, f, 'MLST', params.mode) })
-            .mix(PLASMIDFINDER.out.txt.map { sid, f -> tuple(sid, f, 'PlasmidFinder', params.mode) })
+            .mix(PLASMIDFINDER.out.tsv.map { sid, f -> tuple(sid, f, 'PlasmidFinder', params.mode) })
             .mix(QUAST.out.metrics.map { sid, f -> tuple(sid, f, 'QUAST', params.mode) })
             .mix(BAKTA.out.tsv.map { sid, f -> tuple(sid, f, 'Bakta', params.mode)})
             .mix(BAKTA.out.faa.map { sid, f -> tuple(sid, f, 'Bakta', params.mode) })
             .mix(BAKTA.out.gbff.map { sid, f -> tuple(sid, f, 'Bakta', params.mode) })
             .mix(RMLST.out.tsv.map { sid, f -> tuple(sid, f, 'rMLST', params.mode) })
 
-        RESULTS_PUBLISHER(results_input)
+        RESULTS_PUBLISHER(results_in)
 
     emit:
-        filtered_reads = hq_reads
-        assembly       = shovill_out.assembly
-        annotation     = BAKTA.out.annot
-        MLST           = MLST.out.mlst
-        metrics        = QUAST.out.metrics
-        amrfinderplus  = AMRFINDERPLUS.out.amrf
-        plasmidfinder  = PLASMIDFINDER.out.plasmid
+        filtered_reads  = hq_reads
+        assembly        = final_assembly
+        annotation      = BAKTA.out.annot
+        MLST            = MLST.out.mlst
+        metrics         = QUAST.out.metrics
+        amrfinderplus   = AMRFINDERPLUS.out.amrf
+        plasmidfinder   = PLASMIDFINDER.out.plasmid
         published_files = RESULTS_PUBLISHER.out.published_file
 }

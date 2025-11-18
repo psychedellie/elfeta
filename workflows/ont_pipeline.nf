@@ -83,75 +83,77 @@ flye_out = FLYE(hq_reads)
 
         flye_out.assembly.view { row -> "FLYE assembly DETAILED - sample: ${row[0]}, file: ${row[1]}, exists: ${file(row[1]).exists()}" }
 
-        def medaka_input = hq_reads
+        def medaka_in = hq_reads
             .join(flye_out.assembly)
             .map { sample_id, fastq, assembly_file ->
                 println "Medaka input DETAILED - sample: $sample_id, reads: $fastq, assembly_file: $assembly_file, assembly_exists: ${assembly_file.exists()}"
                 tuple(sample_id, fastq, assembly_file, params.basecaller)
             }
 
-        MEDAKA(medaka_input)
+        MEDAKA(medaka_in)
 
-        def quast_input = hq_reads
-            .join(MEDAKA.out.consensus)
+        def final_assembly = MEDAKA.out.consensus
+
+        def quast_in = hq_reads
+            .join(final_assembly)
             .map { sample_id, fastq, consensus_file ->
                 return tuple( sample_id, fastq, consensus_file )
             }
-        QUAST(quast_input)
+        QUAST(quast_in)
 
-        def bakta_input = MEDAKA.out.consensus
+        def bakta_in = final_assembly
             .map { sample_id, consensus_file ->
                 tuple(sample_id, consensus_file)
             }
 
-        BAKTA(bakta_input)
+        BAKTA(bakta_in)
 
-        def rmlst_input = MEDAKA.out.consensus
+        def rmlst_in = final_assembly
             .map { sample_id, consensus_file ->
                 tuple(sample_id, consensus_file)
             }
 
-        RMLST(rmlst_input)
+        RMLST(rmlst_in)
 
-        def mlst_input = MEDAKA.out.consensus
+        def mlst_in = final_assembly
             .map { sample_id, consensus_file ->
                     tuple(sample_id, consensus_file)
                 }
-        MLST(mlst_input)
+        MLST(mlst_in)
 
-        def amrfinder_input = MEDAKA.out.consensus
+        def amrfinder_in = final_assembly
             .join(RMLST.out.species)
             .map { sample_id, consensus_file, species_file ->
                     tuple(sample_id, consensus_file, species_file)
                 }
-        AMRFINDERPLUS(amrfinder_input)
+        AMRFINDERPLUS(amrfinder_in)
 
-        def plasmidfinder_input = MEDAKA.out.consensus
+        def plasmidfinder_in = final_assembly
             .map { sample_id, consensus_file ->
                 tuple(sample_id, consensus_file, params.db_root)
             }
 
-        PLASMIDFINDER(plasmidfinder_input)
+        PLASMIDFINDER(plasmidfinder_in)
 
-        def results_input = channel.empty()
+        def results_in = channel.empty()
 
-        results_input = results_input
+        results_in = results_in
             .mix(FLYE.out.info.map { sid, f -> tuple(sid, f, 'Fasta/assembly_info', params.mode) })
-            .mix(MEDAKA.out.consensus.map { sid, f -> tuple(sid, f, 'Fasta', params.mode) })
+            .mix(final_assembly.map { sid, f -> tuple(sid, f, 'Fasta', params.mode) })
             .mix(AMRFINDERPLUS.out.amrf.map { sid, f -> tuple(sid, f, 'AMRFinderPlus', params.mode) })
             .mix(MLST.out.mlst.map { sid, f -> tuple(sid, f, 'MLST', params.mode) })
-            .mix(PLASMIDFINDER.out.txt.map { sid, f -> tuple(sid, f, 'PlasmidFinder', params.mode) })
+            .mix(PLASMIDFINDER.tsv.map { sid, f -> tuple(sid, f, 'PlasmidFinder', params.mode) })
             .mix(QUAST.out.metrics.map { sid, f -> tuple(sid, f, 'QUAST', params.mode) })
             .mix(BAKTA.out.tsv.map { sid, f -> tuple(sid, f, 'Bakta', params.mode)})
             .mix(BAKTA.out.faa.map { sid, f -> tuple(sid, f, 'Bakta', params.mode) })
             .mix(BAKTA.out.gbff.map { sid, f -> tuple(sid, f, 'Bakta', params.mode) })
             .mix(RMLST.out.tsv.map { sid, f -> tuple(sid, f, 'rMLST', params.mode) })
 
-        RESULTS_PUBLISHER(results_input)
+        RESULTS_PUBLISHER(results_in)
 
     emit:
         filtered_reads = hq_reads
-        assembly = MEDAKA.out.consensus
+        assembly = final_assembly
         annotation = BAKTA.out.annot
         MLST = MLST.out.mlst
         metrics = QUAST.out.metrics

@@ -1,28 +1,28 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+set -euo pipefail
 
-np_raw_file=$1
-assembly=$2
-output_dir=$3
-threads=$4
-model=$5
-
-echo "medaka.sh DEBUG:"
-echo "Input file: $np_raw_file"
-echo "Assembly: $assembly"
-echo "Output dir: $output_dir"
-echo "Threads: $threads"
-echo "Model: $model"
-
-if [ -d $output_dir ]; then
-    echo "Deleting existing folder: $output_dir"
-    rm -rf $output_dir
+# Usage: medaka.sh <np_raw_file> <assembly> <output_dir> <threads> <model> [optional_medaka_args]
+if [ $# -lt 5 ]; then
+    echo "Usage: $0 <np_raw_file> <assembly> <output_dir> <threads> <model> [args]" >&2
+    exit 2
 fi
 
-# If model is empty, use a default
-if [ -z "$model" ] || [ "$model" == "null" ] || [ "$model" == "None" ]; then
-    echo "No model specified, using default: r1041_e82_400bps_sup_v5.2.0"
-    model="r1041_e82_400bps_sup_v5.2.0"
+np_raw_file="$1"
+assembly="$2"
+output_dir="$3"
+threads="$4"
+args="${5:-}"
+
+# Clean up output directory if it exists (Medaka can fail if dir exists)
+if [ -d "$output_dir" ]; then
+    echo "[Medaka] Deleting existing output folder: $output_dir"
+    rm -rf "$output_dir"
 fi
 
-medaka_consensus -i $np_raw_file -d $assembly -o $output_dir -t $threads --bacteria -m $model
+# Run Medaka
+medaka_consensus \
+    -i "$np_raw_file" \
+    -d "$assembly" \
+    -o "$output_dir" \
+    -t "$threads" \
+    $args

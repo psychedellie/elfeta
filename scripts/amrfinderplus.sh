@@ -1,15 +1,31 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
-# Arguments: consensus output species [threads]
-consensus=$1
-output=$2
-species_name=${3:-}
-threads=${4:-4}
-database=$5
+# Usage: amrfinderplus.sh <assembly> <output> <threads> <species> <database> [args]
+if [ $# -lt 5 ]; then
+    echo "Usage: $0 <assembly> <output> <threads> <species> <database> [args]" >&2
+    exit 2
+fi
 
-if [[ -n "${species_name}" && "${species_name}" != "Not_available_in_AMRFinderPlus" && "${species_name}" != "Not_available" ]]; then
-    amrfinder -n "${consensus}" -o "${output}" -O "${species_name}" --threads "${threads}" --plus --database "${database}"
+consensus="$1"
+output="$2"
+threads="$3"
+species_name="$4"
+database="$5"
+args="${6:-}"
+
+mkdir -p "$(dirname "$output")"
+
+# Determine organism flag
+org_flag=""
+if [[ -n "${species_name}" && "${species_name}" != "null" && "${species_name}" != "Not_available_in_AMRFinderPlus" && "${species_name}" != "Not_available" ]]; then
+    org_flag="-O \"${species_name}\""
+fi
+
+# Run AMRFinderPlus
+# Note: --database argument is required if using a custom DB path
+if [ -n "$org_flag" ]; then
+    amrfinder -n "$consensus" -o "$output" --threads "$threads" --database "$database" -O "$species_name" $args
 else
-    amrfinder -n "${consensus}" -o "${output}" --threads "${threads}" --plus --database "${database}"
+    amrfinder -n "$consensus" -o "$output" --threads "$threads" --database "$database" $args
 fi

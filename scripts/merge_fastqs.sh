@@ -1,31 +1,30 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# scripts/merge_fastqs.sh
-# Merge ONT FASTQs by barcode, filtered by CSV (Lab_ID, Index).
-# Usage: scripts/merge_fastqs.sh <input_dir> <output_dir> <sample_sheet.csv>
+# Usage: merge_fastqs.sh <input_dir> <output_dir> <sample_sheet.csv>
+if [ $# -lt 3 ]; then
+    echo "Usage: $0 <input_dir> <output_dir> <sample_sheet.csv>" >&2
+    exit 2
+fi
 
-input_dir=$1
-output_dir=$2
-sample_sheet=$3
+# Assign arguments to variables
+input_dir="$1"
+output_dir="$2"
+sample_sheet="$3"
 
+# Create output directory
 mkdir -p "$output_dir"
-echo "[merge_fastqs] ======================================="
-echo "[merge_fastqs] Input dir: $input_dir"
-echo "[merge_fastqs] Output dir: $output_dir"
-echo "[merge_fastqs] Sample sheet: $sample_sheet"
-echo "[merge_fastqs] ======================================="
 
-# Validate header (expect Lab_ID in col1 and Index in col3)
+# --- Header Validation ---
 header=$(head -n1 "$sample_sheet" | tr -d '\r')
 IFS=, read -r lab_id _ index _ <<< "$header"
-# Handle potential BOM character at the start of the file
+
+# Clean and validate header columns
 lab_id_clean=$(echo "$lab_id" | sed -e 's/^\xEF\xBB\xBF//' | tr '[:upper:]' '[:lower:]')
 index_clean=$(echo "$index" | tr '[:upper:]' '[:lower:]')
 
 if [[ "$lab_id_clean" != "lab_id" || "$index_clean" != "index" ]]; then
   echo "ERROR: Sample sheet must have Lab_ID in first column and Index in third"
-  echo "  (Got '$lab_id_clean' and '$index_clean')"
   exit 1
 fi
 
@@ -33,53 +32,47 @@ fi
 dups=$(tail -n +2 "$sample_sheet" | tr -d '\r' | cut -d, -f1 | sort | uniq -d)
 if [ -n "$dups" ]; then
   echo "ERROR: Duplicate Lab_IDs in sample sheet:"
-  echo "$dups" | sed 's/^/  - /'
+  echo "$dups"
   exit 1
 fi
 
-echo "[merge_fastqs] Header OK. Starting merge..."
-
-# Merge loop: use col1 (Lab_ID) and col3 (Index)
-# Read from tail, remove carriage returns
+# --- Main Merge Loop ---
+# Loop over sample sheet, reading Lab_ID (col1) and Index (col3)
 tail -n +2 "$sample_sheet" | tr -d '\r' | while IFS=, read -r isolate _ barcode _; do
-  # Trim whitespace
+  # Trim whitespace from variables
   barcode="$(echo "$barcode" | xargs)"
   isolate="$(echo "$isolate" | xargs)"
   
-  # Skip empty lines or lines without a barcode
+  # Skip empty lines
   [ -z "$barcode" ] && continue
   [ -z "$isolate" ] && continue
 
-  # Force base-10 interpretation (avoids octal error on 08, 09)
+  # Format barcode folder name (e.g., barcode01)
   bc_index=$((10#$barcode))
   barcode_folder=$(printf "barcode%02d" "$bc_index")
 
-  # Check for src directory (original script had $barcode and barcode$barcode, this is safer)
+  # Determine source directory (checks standard and numeric names)
   if [ -d "$input_dir/$barcode_folder" ]; then
     src_dir="$input_dir/$barcode_folder"
   elif [ -d "$input_dir/$barcode" ]; then
     src_dir="$input_dir/$barcode"
   else
-    echo "WARN: No folder for barcode $barcode (checked $barcode_folder and $barcode)"
     continue
   fi
 
+  # Find all fastq.gz files in the source directory
   shopt -s nullglob
   files=( "$src_dir"/*.fastq.gz "$src_dir"/*.fq.gz )
   shopt -u nullglob
-  [ ${#files[@]} -eq 0 ] && { echo "WARN: No FASTQs in $src_dir"; continue; }
+  [ ${#files[@]} -eq 0 ] && { continue; }
 
   out="$output_dir/${isolate}.fastq.gz"
   
-  echo "[merge_fastqs] Merging ${#files[@]} files from $src_dir -> $out"
+  # Sort files and concatenate them into the final output file
   printf "%s\n" "${files[@]}" | sort -V | xargs -r cat -- > "$out"
 
+  # Count reads and report success
   if command -v zcat >/dev/null 2>&1; then
     reads=$(zcat "$out" | awk 'NR%4==1{c++} END{print c+0}')
-    echo "OK: $barcode ($src_dir) -> $out ($reads reads)"
-  else
-    echo "OK: $barcode ($src_dir) -> $out"
   fi
 done
-
-echo "[merge_fastqs] Done."

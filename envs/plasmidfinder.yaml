@@ -1,4 +1,4 @@
-name: gep-finders
+name: plasmidfinder
 channels: [conda-forge, bioconda]
 dependencies:
   - plasmidfinder

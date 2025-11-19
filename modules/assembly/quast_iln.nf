@@ -1,27 +1,28 @@
 process QUAST {
-    tag "QUAST on $sample_id"
+    tag "$sample_id"
     label 'metrics'
     conda "${params.envs_dir}/quast.yaml"
     
     publishDir "${params.output_dir}", mode: 'copy'
 
     input:
-    tuple val(sample_id), path(r1), path(r2), path(consensus)
+        tuple val(sample_id), path(r1), path(r2), path(fasta)
+        val(args)
     
     output:
-    tuple val(sample_id), file("samples/${sample_id}/quast/report.tsv"), emit: metrics
+        tuple val(sample_id), path("samples/${sample_id}/quast"),            emit: outdir
+        tuple val(sample_id), path("samples/${sample_id}/quast/report.tsv"), emit: tsv
 
     script:
-    def out_dir = "samples/${sample_id}/quast"
-    
-    """
-    mkdir -p $out_dir
-
+        def outdir = "samples/${sample_id}/quast"
+        
+        """
         bash ${params.scripts_dir}/quast_iln.sh \
-            "${consensus}" \
-            "${out_dir}" \
+            "${fasta}" \
+            "${outdir}" \
             "${r1}" \
             "${r2}" \
-            "${task.cpus}"
-    """
+            "${task.cpus}" \
+            "${args}"
+        """
 }

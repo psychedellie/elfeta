@@ -10,6 +10,8 @@ fi
 input_dir="$1"
 output_dir="$2"
 threads="$3"
+args="${4:-}"
+
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 log_file="${output_dir}/fastplong.log"
 
@@ -34,7 +36,7 @@ python "$script_dir/parallel_ont.py" \
     --input_dir "$input_dir" \
     --out_dir "$output_dir" \
     --thread "$threads" \
-    --args '-m 12 -l 1000 -5 -3 -W 20 -M 12' \
+    --args '$args' \
     2>&1 | tee -a "$log_file"
 
 # organize outputs

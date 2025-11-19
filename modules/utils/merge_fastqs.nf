@@ -1,5 +1,6 @@
 process MERGE_FASTQS {
     tag "${sample_sheet.simpleName}"
+    label 'merging'
     publishDir "${params.output_dir}", mode: 'copy'
 
     input:
@@ -10,9 +11,12 @@ process MERGE_FASTQS {
         path "fastqs_merged/*.fastq.gz", emit: out
 
     script:
-    
-    """
-    mkdir -p reads_merged
-    bash ${params.scripts_dir}/merge_fastqs.sh "${input_dir}" "fastqs_merged" "${sample_sheet}"
-    """
+        def outdir = "fastqs_merged"
+
+        """   
+        bash ${params.scripts_dir}/merge_fastqs.sh \
+            "${input_dir}" \
+            "${outdir}" \
+            "${sample_sheet}"
+        """
 }

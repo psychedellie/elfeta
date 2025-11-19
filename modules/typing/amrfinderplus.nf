@@ -1,30 +1,29 @@
 process AMRFINDERPLUS {
-    tag "AMRFinderPlus on $sample_id"
+    tag "$sample_id"
     label 'amrfinder'
-    conda "${params.envs_dir}/amrfinderplus.yaml"
-    
     publishDir "${params.output_dir}", mode: 'copy'
+    conda "${params.envs_dir}/amrfinderplus.yaml"
 
     input:
-    tuple val(sample_id), path(consensus), path(species_file)
-    
+        tuple val(sample_id), path(consensus), path(species_file)
+        val(args)
+
     output:
-    tuple val(sample_id), path("samples/${sample_id}/${sample_id}_amrf.txt"), emit: amrf
+        tuple val(sample_id), path("samples/${sample_id}/${sample_id}_amrf.txt"), emit: txt
 
     script:
-    def out_dir = "samples/${sample_id}"
-    """
+        def db = "${params.db_root}/amrfinder-db/latest"
+        def output = "samples/${sample_id}/${sample_id}_amrf.txt"
 
-    mkdir -p $out_dir
+        """
+        SPECIES_NAME=\$(cat "${species_file}")
 
-    # Read species name from file into a bash variable
-    SPECIES_NAME=\$(cat "${species_file}")
-
-    bash ${params.scripts_dir}/amrfinderplus.sh \
-        "${consensus}" \
-        "${out_dir}/${sample_id}_amrf.txt" \
-        "\$SPECIES_NAME" \
-        "${task.cpus}" \
-        "${params.db_root}/amrfinder-db/latest"
-    """
+        bash ${params.scripts_dir}/amrfinderplus.sh \
+            "${consensus}" \
+            "${output}" \
+            "${task.cpus}" \
+            "\$SPECIES_NAME" \
+            "${db}" \
+            "${args}"
+        """
 }

@@ -7,24 +7,15 @@ process NORMALIZE_SHORTREADS {
         path input_dir
 
     output:
-        path "samples.tsv", emit: samples_tsv
-        path "*.fastq.gz", emit: normalized_reads
+        path "samples.tsv",  emit: tsv
+        path "*.fastq.gz",   emit: fastqs
 
     script:
-    """
-    mkdir -p normalized_fastqs
-
-    # Make sure input path is absolute so find works correctly
-    in_dir=\$(realpath "${input_dir}")
-    
-    echo "[NORMALIZE_SHORTREADS] Creating sample mapping from: \$in_dir"
-    ls -1 \$in_dir | head -n 10 || echo "[NORMALIZE_SHORTREADS] (no preview)"
-
-    bash ${params.scripts_dir}/normalize_shortreads.sh "\$in_dir" "." || {
-        echo "❌ Normalization failed, check input directory!"
-        exit 1
-    }
-
-    echo "[NORMALIZE_SHORTREADS] Done. Wrote samples.tsv"
-    """
+        """
+        in_dir=\$(realpath "${input_dir}")
+        
+        bash ${params.scripts_dir}/normalize_shortreads.sh "\$in_dir" "." || {
+            exit 1
+        }
+        """
 }

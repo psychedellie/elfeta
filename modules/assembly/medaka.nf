@@ -1,31 +1,28 @@
 process MEDAKA {
     tag "$sample_id"
-    label 'medaka_polishing'
-    publishDir "${params.output_dir}", mode: 'copy'
-    
-    // Dynamic environment selection based on GPU availability
+    label 'medaka_polishing'  
     conda params.enable_gpu ? "${params.envs_dir}/medaka_gpu.yaml" : "${params.envs_dir}/medaka_cpu.yaml"
-
-    // Use GPU if available, otherwise skip silently
     accelerator params.enable_gpu ? 1 : 0
 
-    input:
-    tuple val(sample_id), path(fastq), path(assembly), val(basecaller)
+    publishDir "${params.output_dir}", mode: 'copy'
 
+    input:
+        tuple val(sample_id), path(fastq), path(fasta)
+        val(args)
+    
     output:
-    tuple val(sample_id), path("samples/${sample_id}/medaka/consensus.fasta"), emit: consensus
+        tuple val(sample_id), path("samples/${sample_id}/medaka/"),                emit: outdir
+        tuple val(sample_id), path("samples/${sample_id}/medaka/consensus.fasta"), emit: fasta
 
     script:
-    """
-    mkdir -p "samples/${sample_id}/medaka"
-    
-    echo "MEDAKA DEBUG:"
-    echo "Sample: $sample_id"
-    echo "Fastq: $fastq"
-    echo "Assembly: $assembly"
-    echo "Basecaller: $basecaller"
-    echo "Using GPU: ${params.enable_gpu}"
+        def outdir = "samples/${sample_id}/medaka"
 
-    bash ${params.scripts_dir}/medaka.sh "${fastq}" "${assembly}" "samples/${sample_id}/medaka" "${task.cpus}" "${basecaller}"
-    """
+        """
+        bash ${params.scripts_dir}/medaka.sh \
+            "${fastq}" \
+            "${fasta}" \
+            "${outdir}" \
+            "${task.cpus}" \
+            "${args}"
+        """
 }

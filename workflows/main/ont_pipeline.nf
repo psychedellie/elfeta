@@ -2,17 +2,17 @@
 nextflow.enable.dsl=2
 
 // -- Modules --
-include { MERGE_FASTQS }        from '../modules/utils/merge_fastqs.nf'
-include { FASTPLONG }           from '../modules/qc/fastplong.nf'
-include { FLYE }                from '../modules/assembly/flye.nf'
-include { MEDAKA }              from '../modules/assembly/medaka.nf'
-include { QUAST }               from '../modules/assembly/quast_ont.nf'
-include { BAKTA }               from '../modules/typing/bakta.nf'
-include { RMLST }               from '../modules/typing/rmlst.nf'
-include { MLST }                from '../modules/typing/mlst.nf'
-include { AMRFINDERPLUS }       from '../modules/typing/amrfinderplus.nf'
-include { PLASMIDFINDER }       from '../modules/typing/plasmidfinder.nf'
-include { RESULTS_PUBLISHER }   from '../modules/utils/results_publisher.nf'
+include { MERGE_FASTQS }        from '../../modules/utils/merge_fastqs.nf'
+include { FASTPLONG }           from '../../modules/qc/fastplong.nf'
+include { FLYE }                from '../../modules/assembly/flye.nf'
+include { MEDAKA }              from '../../modules/assembly/medaka.nf'
+include { QUAST }               from '../../modules/assembly/quast_ont.nf'
+include { BAKTA }               from '../../modules/typing/bakta.nf'
+include { RMLST }               from '../../modules/typing/rmlst.nf'
+include { MLST }                from '../../modules/typing/mlst.nf'
+include { AMRFINDERPLUS }       from '../../modules/typing/amrfinderplus.nf'
+include { PLASMIDFINDER }       from '../../modules/typing/plasmidfinder.nf'
+include { RESULTS_PUBLISHER }   from '../../modules/utils/results_publisher.nf'
 
 workflow ONT_PIPELINE {
 

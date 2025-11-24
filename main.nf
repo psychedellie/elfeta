@@ -2,13 +2,13 @@
 nextflow.enable.dsl=2
 
 // --- All includes are fine here ---
-include { showHelp }                from './workflows/help_utils.nf'
-include { validateParams }          from './workflows/help_utils.nf'
-include { dbSetup }                 from './workflows/db_setup.nf'
-include { ONT_PIPELINE }            from './workflows/ont_pipeline.nf'
-include { ILN_PIPELINE }            from './workflows/iln_pipeline.nf'
-include { SP_PIPELINE }             from './workflows/sp_pipeline.nf'
-include { LP_PIPELINE }             from './workflows/lp_pipeline.nf'
+include { SHOW_HELP }               from './workflows/utils/help_utils.nf'
+include { VAL_PARAMS }              from './workflows/utils/val_params.nf'
+include { DB_SETUP }                from './workflows/utils/db_setup.nf'
+include { ONT_PIPELINE }            from './workflows/main/ont_pipeline.nf'
+include { ILN_PIPELINE }            from './workflows/main/iln_pipeline.nf'
+include { SP_PIPELINE }             from './workflows/main/sp_pipeline.nf'
+include { LP_PIPELINE }             from './workflows/main/lp_pipeline.nf'
 include { REPORT }                  from './modules/utils/report.nf'
 include { AMRFINDER_HTML }          from './modules/utils/amrfinder_html.nf'
 
@@ -45,16 +45,16 @@ def initParams() {
 workflow {
     
     if (params.help || params.h) {
-        showHelp()  
+        SHOW_HELP()  
         exit 0
     }
 
     if (params.db_setup) {
-        dbSetup()
+        DB_SETUP()
         return
     }
 
-    validateParams(params)
+    VAL_PARAMS(params)
 
     def sample_sheet = channel.of(file(params.sample_sheet))
 

@@ -2,16 +2,16 @@
 nextflow.enable.dsl=2
 
 // -- Modules --
-include { NORMALIZE_SHORTREADS } from '../modules/utils/normalization.nf'
-include { FASTP }                from '../modules/qc/fastp.nf'
-include { SHOVILL }              from '../modules/assembly/shovill.nf'
-include { QUAST }                from '../modules/assembly/quast_iln.nf'
-include { BAKTA }                from '../modules/typing/bakta.nf'
-include { RMLST }                from '../modules/typing/rmlst.nf'
-include { MLST }                 from '../modules/typing/mlst.nf'
-include { AMRFINDERPLUS }        from '../modules/typing/amrfinderplus.nf'
-include { PLASMIDFINDER }        from '../modules/typing/plasmidfinder.nf'
-include { RESULTS_PUBLISHER }    from '../modules/utils/results_publisher.nf'
+include { NORMALIZE_SHORTREADS } from '../../modules/utils/normalization.nf'
+include { FASTP }                from '../../modules/qc/fastp.nf'
+include { SHOVILL }              from '../../modules/assembly/shovill.nf'
+include { QUAST }                from '../../modules/assembly/quast_iln.nf'
+include { BAKTA }                from '../../modules/typing/bakta.nf'
+include { RMLST }                from '../../modules/typing/rmlst.nf'
+include { MLST }                 from '../../modules/typing/mlst.nf'
+include { AMRFINDERPLUS }        from '../../modules/typing/amrfinderplus.nf'
+include { PLASMIDFINDER }        from '../../modules/typing/plasmidfinder.nf'
+include { RESULTS_PUBLISHER }    from '../../modules/utils/results_publisher.nf'
 
 workflow ILN_PIPELINE {
 

@@ -1,11 +1,11 @@
 #!/usr/bin/env nextflow
 nextflow.enable.dsl=2
 
-include { DB_AMRFINDER }     from '../modules/utils/db_amrfinder.nf'
-include { DB_BAKTA }         from '../modules/utils/db_bakta.nf'
-include { DB_PLASMIDFINDER } from '../modules/utils/db_plasmidfinder.nf'
+include { DB_AMRFINDER }     from '../../modules/utils/db_amrfinder.nf'
+include { DB_BAKTA }         from '../../modules/utils/db_bakta.nf'
+include { DB_PLASMIDFINDER } from '../../modules/utils/db_plasmidfinder.nf'
 
-workflow dbSetup {
+workflow DB_SETUP {
 
     main:
         log.info """

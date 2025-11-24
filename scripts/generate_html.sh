@@ -1,13 +1,47 @@
 #!/bin/bash
 
-folder_path=$1
-timestamp=$(date +"%Y-%m-%d_%H-%M")
-mkdir -p "$folder_path"
-output_file="$folder_path/results_$timestamp.html"
+# Initialize variables
+FILE_LIST=()
+mkdir -p Results/AMRFinderPlus
+OUTPUT_FILE=""
+
+# --- Argument Parsing ---
+while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+        --files)
+            # Collect all subsequent arguments until the next flag or end of arguments
+            shift
+            while [[ "$#" -gt 0 ]] && [[ ! "$1" =~ ^- ]]; do
+                FILE_LIST+=("$1")
+                shift
+            done
+            ;;
+        --output)
+            OUTPUT_FILE="$2"
+            shift
+            shift
+            ;;
+        *)
+            # Unknown parameter
+            echo "Unknown parameter passed: $1"
+            exit 1
+            ;;
+    esac
+done
+
+if [ ${#FILE_LIST[@]} -eq 0 ] || [ -z "$OUTPUT_FILE" ]; then
+    echo "Error: Must provide --files and --output."
+    exit 1
+fi
+
+# We don't need a timestamp or folder path creation if Nextflow manages output
+# The OUTPUT_FILE is the path to the file to be created in the process workdir
 
 excluded_columns=("Protein identifier" "Strand" "Sequence name" "Target length" "Reference sequence length" "HMM id" "HMM description" "HMM accession" "Protein id")
 
-cat <<EOF > "$output_file"
+# --- HTML Generation Start ---
+
+cat <<EOF > "$OUTPUT_FILE"
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -63,12 +97,14 @@ cat <<EOF > "$output_file"
         <option value="All samples">All samples</option>
 EOF
 
-for file in "$folder_path"/*.txt; do
-  filename=$(basename "$file" .txt)
-  echo "        <option value=\"$filename\">$filename</option>" >> "$output_file"
+for file in "${FILE_LIST[@]}"; do
+  # Use only the filename as the sample ID, removing path and extension
+  filename=$(basename "$file")
+  sample_id="${filename%.*}"
+  echo "        <option value=\"$sample_id\">$sample_id</option>" >> "$OUTPUT_FILE"
 done
 
-cat <<'EOF' >> "$output_file"
+cat <<'EOF' >> "$OUTPUT_FILE"
       </select>
       <select id="select_method" onchange="filterTable()">
         <option value="select method">select method</option>
@@ -90,40 +126,48 @@ cat <<'EOF' >> "$output_file"
     <thead>
 EOF
 
-first_file=$(ls "$folder_path"/*.txt 2>/dev/null | head -n 1)
+# --- Header Row Generation (using the first file in the list) ---
+
+first_file="${FILE_LIST[0]}"
 declare -a exclude_indices=()
 if [ -f "$first_file" ]; then
   header=$(head -n 1 "$first_file")
   IFS=$'\t' read -r -a columns <<< "$header"
-  echo "      <tr><th>Sample</th>" >> "$output_file"
+  echo "      <tr><th>Sample</th>" >> "$OUTPUT_FILE"
   for i in "${!columns[@]}"; do
     if [[ ! " ${excluded_columns[@]} " =~ " ${columns[$i]} " ]]; then
-      echo "<th>${columns[$i]}</th>" >> "$output_file"
+      echo "<th>${columns[$i]}</th>" >> "$OUTPUT_FILE"
     else
       exclude_indices+=("$i")
     fi
   done
-  echo "</tr>" >> "$output_file"
+  echo "</tr>" >> "$OUTPUT_FILE"
 fi
 
-echo "    </thead>" >> "$output_file"
-echo "    <tbody>" >> "$output_file"
+echo "    </thead>" >> "$OUTPUT_FILE"
+echo "    <tbody>" >> "$OUTPUT_FILE"
 
-for file in "$folder_path"/*.txt; do
-  filename=$(basename "$file" .txt)
+# --- Data Row Generation (iterating through the list of files) ---
+
+for file in "${FILE_LIST[@]}"; do
+  filename=$(basename "$file")
+  sample_id="${filename%.*}"
+  
   tail -n +2 "$file" | while IFS=$'\t' read -r -a columns; do
-    row="<tr><td>$filename</td>"
+    row="<tr><td>$sample_id</td>"
     for i in "${!columns[@]}"; do
       if [[ ! " ${exclude_indices[@]} " =~ " $i " ]]; then
-        row="$row<td>${columns[$i]}</td>"
+        # Escape any double quotes in the cell content to prevent breaking the HTML attribute
+        content="${columns[$i]//\"/&quot;}"
+        row="$row<td>$content</td>"
       fi
     done
     row="$row</tr>"
-    echo "      $row" >> "$output_file"
+    echo "      $row" >> "$OUTPUT_FILE"
   done
 done
 
-cat <<'EOF' >> "$output_file"
+cat <<'EOF' >> "$OUTPUT_FILE"
     </tbody>
   </table>
   </div>
@@ -194,4 +238,4 @@ cat <<'EOF' >> "$output_file"
 </html>
 EOF
 
-echo "HTML file '$output_file' has been generated successfully."
+echo "HTML file '$OUTPUT_FILE' has been generated successfully."

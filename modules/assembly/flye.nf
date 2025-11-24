@@ -22,6 +22,6 @@ process FLYE {
             "${fastq}" \
             "${outdir}" \
             "${task.cpus}" \
-            "${args}"
+            ${args}
         """
 }

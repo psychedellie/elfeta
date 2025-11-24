@@ -13,19 +13,20 @@ idx_prefix="$2"
 r1="$3"
 r2="$4"
 threads="$5"
+args="${6:-}"
 
 # Create output directory for the sample
 mkdir -p "samples/${sample_id}"
 
 # Align R1 reads using bwa-mem2
-bwa-mem2 mem \
+bwa-mem2 mem ${args} \
     -t "${threads}" \
     -a "${idx_prefix}" \
     "${r1}" \
     > "samples/${sample_id}/${sample_id}_1.sam"
 
 # Align R2 reads using bwa-mem2
-bwa-mem2 mem \
+bwa-mem2 mem ${args} \
     -t "${threads}" \
     -a "${idx_prefix}" \
     "${r2}" \

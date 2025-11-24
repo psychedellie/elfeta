@@ -23,6 +23,6 @@ process MEDAKA {
             "${fasta}" \
             "${outdir}" \
             "${task.cpus}" \
-            "${args}"
+            ${args}
         """
 }

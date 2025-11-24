@@ -7,6 +7,7 @@ process BWA_INDEX {
 
     input:
         tuple val(sample_id), path(fasta)
+        val(args)
 
     output:
         tuple val(sample_id), path(fasta), path("samples/${sample_id}/bwa_index"), emit: idx
@@ -18,6 +19,7 @@ process BWA_INDEX {
         bash ${params.scripts_dir}/bwa_index.sh \
             "${sample_id}" \
             "${fasta}" \
-            "${out_dir}"
+            "${out_dir}" \
+            ${args}
         """
 }

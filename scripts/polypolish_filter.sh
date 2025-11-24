@@ -11,10 +11,17 @@ fi
 sam1="$1"
 sam2="$2"
 sample_id="$3"
+args="${4:-}"
+
+# Define output file path
+outdir="samples/${sample_id}/polypolish"
+
+# Create output directory
+mkdir -p "$outdir"
 
 # Run Polypolish filter
-polypolish filter \
-    --in1 "${sam1}" \
-    --in2 "${sam2}" \
-    --out1 "${sample_id}.filtered_1.sam" \
-    --out2 "${sample_id}.filtered_2.sam"
+polypolish filter ${args} \
+    --in1 "$sam1" \
+    --in2 "$sam2" \
+    --out1 "${outdir}/${sample_id}.filtered_1.sam" \
+    --out2 "${outdir}/${sample_id}.filtered_2.sam"

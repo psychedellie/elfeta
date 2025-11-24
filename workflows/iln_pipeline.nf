@@ -105,9 +105,9 @@ workflow ILN_PIPELINE {
         filtered_reads  = hq_reads
         assembly        = final_assembly
         annotation      = bakta_out
-        MLST            = mlst_out
-        metrics         = quast_out
-        amrfinderplus   = amrfinder_out
+        MLST            = mlst_out.tsv
+        metrics         = quast_out.tsv
+        amrfinderplus   = amrfinder_out.txt
         plasmidfinder   = plasmidfinder_out
         published_files = results_out
 }

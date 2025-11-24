@@ -8,15 +8,15 @@ if [ $# -lt 3 ]; then
 fi
 
 np_raw_file="$1"
-flye_dir="$2"
+outdir="$2"
 threads="$3"
 args="${4:-}"
 
 # Ensure output directory exists
-mkdir -p "$flye_dir"
+mkdir -p "$outdir"
 
 # Run Flye assembler
-flye --nano-hq "$np_raw_file" \
-    --out-dir "$flye_dir" \
-    --threads "$threads" \
-    $args
+flye ${args} \
+    --nano-hq "$np_raw_file" \
+    --out-dir "$outdir" \
+    --threads "$threads"

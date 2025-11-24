@@ -25,7 +25,16 @@ fi
 # Run AMRFinderPlus
 # Note: --database argument is required if using a custom DB path
 if [ -n "$org_flag" ]; then
-    amrfinder -n "$consensus" -o "$output" --threads "$threads" --database "$database" -O "$species_name" $args
+    amrfinder ${args} \
+    -n "$consensus" \
+    -o "$output" \
+    --threads "$threads" \
+    --database "$database" \
+    -O "$species_name"
 else
-    amrfinder -n "$consensus" -o "$output" --threads "$threads" --database "$database" $args
+    amrfinder ${args} \
+    -n "$consensus" \
+    -o "$output" \
+    --threads "$threads" \
+    --database "$database"
 fi

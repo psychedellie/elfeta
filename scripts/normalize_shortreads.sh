@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Usage: normalize_shortreads.sh <in_dir> <out_dir>
+# Usage: normalize_shortreads.sh <in_dir> <outdir>
 if [ $# -lt 2 ]; then
-    echo "Usage: $0 <in_dir> <out_dir>" >&2
+    echo "Usage: $0 <in_dir> <outdir>" >&2
     exit 2
 fi
 
 # Assign required arguments to variables
 in_dir="${1:?Input FASTQ dir required}"
-out_dir="${2:?Output dir required}"
+outdir="${2:?Output dir required}"
 
 # Create output directory and samples TSV file
-mkdir -p "$out_dir"
-samples_tsv="$out_dir/samples.tsv"
+mkdir -p "$outdir"
+samples_tsv="$outdir/samples.tsv"
 : > "$samples_tsv"
 
 shopt -s nullglob extglob
@@ -42,7 +42,7 @@ for f in "${files[@]}"; do
     
     # Define new paths for the normalized file
     new_name="${orig_id}_R${read_num}.fastq.gz"
-    new_path="$out_dir/$new_name"
+    new_path="$outdir/$new_name"
     
     # Copy file to output directory with new name
     cp \

@@ -22,6 +22,6 @@ process QUAST {
             "${outdir}" \
             "${fastq}" \
             "${task.cpus}" \
-            "${args}"
+            ${args}
         """
 }

@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Usage: merge_fastqs.sh <input_dir> <output_dir> <sample_sheet.csv>
+# Usage: merge_fastqs.sh <input_dir> <outdir> <sample_sheet.csv>
 if [ $# -lt 3 ]; then
-    echo "Usage: $0 <input_dir> <output_dir> <sample_sheet.csv>" >&2
+    echo "Usage: $0 <input_dir> <outdir> <sample_sheet.csv>" >&2
     exit 2
 fi
 
 # Assign arguments to variables
 input_dir="$1"
-output_dir="$2"
+outdir="$2"
 sample_sheet="$3"
 
 # Create output directory
-mkdir -p "$output_dir"
+mkdir -p "$outdir"
 
 # --- Header Validation ---
 header=$(head -n1 "$sample_sheet" | tr -d '\r')
@@ -66,7 +66,7 @@ tail -n +2 "$sample_sheet" | tr -d '\r' | while IFS=, read -r isolate _ barcode 
   shopt -u nullglob
   [ ${#files[@]} -eq 0 ] && { continue; }
 
-  out="$output_dir/${isolate}.fastq.gz"
+  out="$outdir/${isolate}.fastq.gz"
   
   # Sort files and concatenate them into the final output file
   printf "%s\n" "${files[@]}" | sort -V | xargs -r cat -- > "$out"

@@ -13,15 +13,16 @@ fq2="$2"
 outdir="$3"
 threads="$4"
 mem_mb="$5"
+args="${6:-}"
 
 # Create output directory
 mkdir -p "$outdir"
 
 # Run Shovill assembler
-shovill \
+shovill ${args} \
   --R1 "$fq1" \
   --R2 "$fq2" \
   --outdir "$outdir" \
   --force \
   --cpus "$threads" \
-  --ram $((mem_mb / 1000))
+  --ram $((mem_mb / 1000)) 

@@ -155,12 +155,13 @@ workflow ONT_PIPELINE {
         def results_out = RESULTS_PUBLISHER(results_in)
 
     emit:
-        filtered_reads  = hq_reads
-        assembly        = final_assembly
-        annotation      = bakta_out
-        MLST            = mlst_out
-        metrics         = quast_out
-        amrfinderplus   = amrfinder_out
-        plasmidfinder   = plasmidfinder_out
-        published_files = results_out
+        filtered_reads     = hq_reads
+        assembly           = final_assembly
+        annotation         = bakta_out.outdir
+        MLST               = mlst_out.tsv
+        metrics            = quast_out.tsv
+        amrfinderplus      = amrfinder_out.txt
+        plasmidfinder      = plasmidfinder_out.outdir
+        Published_Results  = results_out
+
 }

@@ -2,13 +2,16 @@
 nextflow.enable.dsl=2
 
 // --- All includes are fine here ---
-include { showHelp }       from './workflows/help_utils.nf'
-include { validateParams } from './workflows/help_utils.nf'
-include { dbSetup }        from './workflows/db_setup.nf'
-include { ONT_PIPELINE }   from './workflows/ont_pipeline.nf'
-include { ILN_PIPELINE }   from './workflows/iln_pipeline.nf'
-include { HBD_PIPELINE }   from './workflows/hbd_pipeline.nf'
-include { REPORT }         from './modules/utils/report.nf'
+include { showHelp }                from './workflows/help_utils.nf'
+include { validateParams }          from './workflows/help_utils.nf'
+include { dbSetup }                 from './workflows/db_setup.nf'
+include { ONT_PIPELINE }            from './workflows/ont_pipeline.nf'
+include { ILN_PIPELINE }            from './workflows/iln_pipeline.nf'
+include { SP_PIPELINE }             from './workflows/sp_pipeline.nf'
+include { LP_PIPELINE }             from './workflows/lp_pipeline.nf'
+include { REPORT }                  from './modules/utils/report.nf'
+include { AMRFINDER_HTML }          from './modules/utils/amrfinder_html.nf'
+
 
 // --- Helper function(s) ---
 def absPath(p) {
@@ -57,19 +60,33 @@ workflow {
 
     if (params.mode == 'ont') {
         def ont_results = ONT_PIPELINE()
-        def all_completed = ont_results.published_files.collect()
+        def all_completed = ont_results.Published_Results.collect()
         REPORT(file(params.output_dir), sample_sheet, all_completed, params.mode)
+        def amrfinder_files = ont_results.ARGs_PMs_VGs.map { _sample_id, file -> file }.collect()
+        AMRFINDER_HTML(amrfinder_files)
     }
 
     if (params.mode == 'iln') {
         def iln_results = ILN_PIPELINE()
-        def all_completed = iln_results.published_files.collect()
+        def all_completed = iln_results.Published_Results.collect()
         REPORT(file(params.output_dir), sample_sheet, all_completed, params.mode)
+        def amrfinder_files = iln_results.ARGs_PMs_VGs.map { _sample_id, file -> file }.collect()
+        AMRFINDER_HTML(amrfinder_files)
     }
 
-    if (params.mode == 'hbd') {
-        def hbd_results = HBD_PIPELINE()
-        def all_completed = hbd_results.published_files.collect()
+    if (params.mode == 'sp') {
+        def sp_results = SP_PIPELINE()
+        def all_completed = sp_results.Published_Results.collect()
         REPORT(file(params.output_dir), sample_sheet, all_completed, params.mode)
+        def amrfinder_files = sp_results.ARGs_PMs_VGs.map { _sample_id, file -> file }.collect()
+        AMRFINDER_HTML(amrfinder_files)
+    }
+
+    if (params.mode == 'lp') {
+        def lp_results = LP_PIPELINE()
+        def all_completed = lp_results.Published_Results.collect()
+        REPORT(file(params.output_dir), sample_sheet, all_completed, params.mode)
+        def amrfinder_files = lp_results.ARGs_PMs_VGs.map { _sample_id, file -> file }.collect()
+        AMRFINDER_HTML(amrfinder_files)
     }
 }

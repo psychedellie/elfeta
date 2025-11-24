@@ -22,6 +22,6 @@ process PLASMIDFINDER {
             "${fasta}" \
             "${outdir}" \
             "${db}" \
-            "${args}"
+            ${args}
         """
 }

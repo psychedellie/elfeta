@@ -24,6 +24,6 @@ process AMRFINDERPLUS {
             "${task.cpus}" \
             "\$SPECIES_NAME" \
             "${db}" \
-            "${args}"
+            ${args}
         """
 }

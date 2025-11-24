@@ -295,7 +295,11 @@ out_xlsx <- file.path(BASE_DIR, "final_report_complete.xlsx")
 wb <- createWorkbook()
 addWorksheet(wb, "final_report")
 
-writeData(wb, "final_report", final_report)
+# --- FIX for 'row names contain missing values' error ---
+# Explicitly convert to a data frame without row names before writing.
+final_report_safe <- as.data.frame(final_report, row.names = NULL)
+writeData(wb, "final_report", final_report_safe)
+# -------------------------------------------------------
 
 headerStyle <- createStyle(textDecoration = "bold", halign = "center", valign = "center", wrapText = FALSE)
 addStyle(

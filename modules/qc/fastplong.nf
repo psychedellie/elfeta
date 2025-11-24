@@ -23,6 +23,6 @@ process FASTPLONG {
             "${input_dir}" \
             "${outdir}" \
             "${task.cpus}" \
-            "${args}"
+            ${args}
         """
 }

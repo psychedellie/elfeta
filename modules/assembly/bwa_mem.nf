@@ -7,6 +7,7 @@ process BWA_MEM {
 
     input:
         tuple val(sample_id), val(idx_prefix), path(r1), path(r2)
+        val(args)
 
     output:
         tuple val(sample_id), path("samples/${sample_id}/${sample_id}_1.sam"), emit: sam1
@@ -19,6 +20,7 @@ process BWA_MEM {
             "${idx_prefix}" \
             "${r1}" \
             "${r2}" \
-            "${task.cpus}"
+            "${task.cpus}" \
+            ${args}
         """
 }

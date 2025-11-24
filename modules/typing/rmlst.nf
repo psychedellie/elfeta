@@ -23,6 +23,6 @@ process RMLST {
             "${consensus}" \
             "${output}" \
             "${supported_organisms}" \
-            "${species_file}" \
+            ${species_file} \
         """
 }

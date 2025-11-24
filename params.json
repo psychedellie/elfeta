@@ -1,7 +1,7 @@
     {
     "fastp": "--trim_front1 10 --trim_front2 10 --length_required 30 --average_qual 30 --trim_poly_x --trim_poly_g",
     "fastplong": "--mean_qual 12 --length_required 1000 --cut_front --cut_tail --cut_window_size 20 --cut_mean_quality 12",
-    "shovill": "",
+    "shovill": "--minlen 50",
     "flye": "--deterministic",
     "medaka": "--bacteria -m r1041_e82_400bps_sup_v4.3.0",
     "bwa_idx": "",
@@ -10,5 +10,7 @@
     "polypolish_polish": "",
     "quast": "",
     "bakta": "--force",
-    "amrfinder": "--plus"
+    "amrfinder": "--plus",
+    "unicycler": "--min_fasta_length 50",
+    "useMamba": true
 }

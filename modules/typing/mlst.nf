@@ -1,5 +1,5 @@
 process MLST {
-    tag "MLST on $sample_id"
+    tag "$sample_id"
     label 'mlst_typing'
     conda "${params.envs_dir}/mlst.yaml"
     
@@ -21,6 +21,6 @@ process MLST {
             "${fasta}" \
             "${sample_id}" \
             "${out_file}" \
-            "${args}"
+            ${args}
         """
 }

@@ -26,6 +26,6 @@ process BAKTA {
             "${sample_id}" \
             "${task.cpus}" \
             "${db}" \
-            "${args}"
+            ${args}
         """
 }

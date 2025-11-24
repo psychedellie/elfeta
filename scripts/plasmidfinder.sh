@@ -9,16 +9,15 @@ fi
 
 # Assign required arguments to variables
 consensus="$1"
-output="$2"
+outdir="$2"
 database="$3"
 args="${4:-}"
 
-# Create output directory
-mkdir -p "$output"
+# Create outdir directory
+mkdir -p "$outdir"
 
 # Run PlasmidFinder with arguments
-plasmidfinder.py \
+plasmidfinder.py ${args} \
     -i "$consensus" \
     -p "$database" \
-    -o "$output" \
-    $args
+    -o "$outdir"

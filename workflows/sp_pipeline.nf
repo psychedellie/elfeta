@@ -20,7 +20,7 @@ include { AMRFINDERPLUS }        from '../modules/typing/amrfinderplus.nf'
 include { PLASMIDFINDER }        from '../modules/typing/plasmidfinder.nf'
 include { RESULTS_PUBLISHER }    from '../modules/utils/results_publisher.nf'
 
-workflow HBD_PIPELINE {
+workflow SP_PIPELINE {
 
     main:
 
@@ -31,7 +31,7 @@ workflow HBD_PIPELINE {
 
         def normalization_out = NORMALIZE_SHORTREADS(file(params.input_dir))
 
-        def fastp_input = normalization_out.samples_tsv.map { tsv_file ->
+        def fastp_input = normalization_out.tsv.map { tsv_file ->
             file(tsv_file).parent
         }
 
@@ -118,8 +118,8 @@ workflow HBD_PIPELINE {
         def medaka_out = MEDAKA(medaka_in, params.medaka)
 
         // --- Hybrid Polishing ---
-        def bwa_index_out = BWA_INDEX(medaka_out.fasta)
-        def bwa_mem_in = bwa_index_out.index.join(hq_reads_iln).map { sample_id, _consensus_file, index_dir, read1, read2 ->
+        def bwa_index_out = BWA_INDEX(medaka_out.fasta, params.bwa_idx)
+        def bwa_mem_in = bwa_index_out.idx.join(hq_reads_iln).map { sample_id, _consensus_file, index_dir, read1, read2 ->
             def index_prefix = file("${index_dir}/${sample_id}")
             tuple(sample_id, index_prefix, read1, read2)
         }
@@ -130,13 +130,13 @@ workflow HBD_PIPELINE {
 
         def bwa_mem_out = BWA_MEM(bwa_mem_in, params.bwa_mem)
         def polypolish_filter_in = bwa_mem_out.sam1.join(bwa_mem_out.sam2)
-        def filter_out = POLYPOLISH_FILTER(polypolish_filter_in, params.filter)
+        def filter_out = POLYPOLISH_FILTER(polypolish_filter_in, params.polypolish_filter)
 
-        def polypolish_in = medaka_out.consensus.join(filter_out.sams).map { sample_id, assembly_fasta, filtered_sam1, filtered_sam2 ->
-            tuple(sample_id, assembly_fasta, filtered_sam1, filtered_sam2, params.polypolish_args)
+        def polypolish_in = medaka_out.fasta.join(filter_out.sams).map { sample_id, assembly_fasta, filtered_sam1, filtered_sam2 ->
+            tuple(sample_id, assembly_fasta, filtered_sam1, filtered_sam2)
         }
 
-        def polypolish_out = POLYPOLISH_POLISH(polypolish_in, params.polypolish)
+        def polypolish_out = POLYPOLISH_POLISH(polypolish_in, params.polypolish_polish)
         def final_assembly = polypolish_out.fasta
 
         final_assembly.view { sample_id, assembly_file ->
@@ -178,10 +178,10 @@ workflow HBD_PIPELINE {
         def results_in = channel.empty()
             .mix(flye_out.txt.map            { sample_id, file -> tuple(sample_id, file, 'Fasta/assembly_info', params.mode) })
             .mix(final_assembly.map          { sample_id, file -> tuple(sample_id, file, 'Fasta', params.mode) })
-            .mix(amrfinder_out.amrf.map      { sample_id, file -> tuple(sample_id, file, 'AMRFinderPlus', params.mode) })
+            .mix(amrfinder_out.txt.map       { sample_id, file -> tuple(sample_id, file, 'AMRFinderPlus', params.mode) })
             .mix(mlst_out.tsv.map            { sample_id, file -> tuple(sample_id, file, 'MLST', params.mode) })
             .mix(plasmidfinder_out.tsv.map   { sample_id, file -> tuple(sample_id, file, 'PlasmidFinder', params.mode) })
-            .mix(quast_out.txt.map           { sample_id, file -> tuple(sample_id, file, 'QUAST', params.mode) })
+            .mix(quast_out.tsv.map           { sample_id, file -> tuple(sample_id, file, 'QUAST', params.mode) })
             .mix(bakta_out.tsv.map           { sample_id, file -> tuple(sample_id, file, 'Bakta', params.mode) })
             .mix(bakta_out.faa.map           { sample_id, file -> tuple(sample_id, file, 'Bakta', params.mode) })
             .mix(bakta_out.gbff.map          { sample_id, file -> tuple(sample_id, file, 'Bakta', params.mode) })
@@ -193,10 +193,10 @@ workflow HBD_PIPELINE {
         Filtered_ONT_reads    = hq_reads_ont
         Filtered_ILN_reads    = hq_reads_iln
         Final_Assembly        = final_assembly
-        Gene_Annotation       = bakta_out
-        Sequence_Typing       = mlst_out
-        Sequencing_Metrics    = quast_out
-        ARGs_PMs_VGs          = amrfinder_out
-        Plasmid_Profiles      = plasmidfinder_out
+        Gene_Annotation       = bakta_out.outdir
+        Sequence_Typing       = mlst_out.tsv
+        Sequencing_Metrics    = quast_out.tsv
+        ARGs_PMs_VGs          = amrfinder_out.txt
+        Plasmid_Profiles      = plasmidfinder_out.outdir
         Published_Results     = results_out
 }

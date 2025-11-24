@@ -1,25 +1,27 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Usage: quast.sh <assembly> <output_dir> <raw_file_R1> <raw_file_R2> <threads>
+# Usage: quast.sh <assembly> <outdir> <raw_file_R1> <raw_file_R2> <threads>
 if [ $# -lt 5 ]; then
-    echo "Usage: $0 <assembly> <output_dir> <raw_file_R1> <raw_file_R2> <threads>" >&2
+    echo "Usage: $0 <assembly> <outdir> <raw_file_R1> <raw_file_R2> <threads>" >&2
     exit 2
 fi
 
 # Assign arguments to variables
 assembly="$1"
-output_dir="$2"
+outdir="$2"
 raw_file_R1="$3"
 raw_file_R2="$4"
 threads="$5"
+args="${6:-}"
 
 # Create output directory
-mkdir -p "$output_dir"
+mkdir -p "$outdir"
 
 # Run QUAST with short-read correction
 quast "$assembly" \
-    -o "$output_dir" \
+    -o "$outdir" \
     --pe1 "$raw_file_R1" \
     --pe2 "$raw_file_R2" \
-    --threads "$threads"
+    --threads "$threads" \
+    $args

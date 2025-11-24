@@ -1,5 +1,5 @@
 process POLYPOLISH_POLISH {
-    tag "Polypolish polish for $sample_id"
+    tag "$sample_id"
     label "polypolish_polish"
     conda "${params.envs_dir}/polypolish.yaml"
 
@@ -10,7 +10,7 @@ process POLYPOLISH_POLISH {
         val(args)
 
     output:
-        tuple val(sample_id), path("samples/${sample_id}/consensus.fasta"), emit: fasta
+        tuple val(sample_id), path("samples/${sample_id}/polypolish/consensus.fasta"), emit: fasta
 
     script:
         """
@@ -19,6 +19,6 @@ process POLYPOLISH_POLISH {
             "${fasta}" \
             "${filtered_sam1}" \
             "${filtered_sam2}" \
-            "${args}"  
+            ${args}
         """
 }

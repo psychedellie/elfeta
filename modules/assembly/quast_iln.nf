@@ -23,6 +23,6 @@ process QUAST {
             "${r1}" \
             "${r2}" \
             "${task.cpus}" \
-            "${args}"
+            ${args}
         """
 }

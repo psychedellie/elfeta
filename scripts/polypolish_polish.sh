@@ -15,15 +15,15 @@ filtered_sam_2="$4"
 args="${5:-}"
 
 # Define output file path
-out_dir="samples/${sample_id}"
-out_file="${out_dir}/consensus.fasta"
+outdir="samples/${sample_id}/polypolish"
+out_file="${outdir}/consensus.fasta"
 
 # Create output directory
-mkdir -p "${out_dir}"
+mkdir -p "$outdir"
 
 # Run Polypolish polish
 polypolish polish ${args} \
-    "${assembly_in}" \
-    "${filtered_sam_1}" \
-    "${filtered_sam_2}" \
+    "$assembly_in" \
+    "$filtered_sam_1" \
+    "$filtered_sam_2" \
     > "${out_file}"

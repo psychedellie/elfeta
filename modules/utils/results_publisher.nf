@@ -8,7 +8,7 @@ process RESULTS_PUBLISHER {
         tuple val(sample_id), path(result_file), val(tool), val(mode)
 
     output:
-        path "${tool}/${sample_id}_${mode.toUpperCase()}.${result_file.extension}", emit: published_file
+        path "${tool}/${sample_id}_${mode.toUpperCase()}.${result_file.extension}", emit: published_files
 
     script:
         """

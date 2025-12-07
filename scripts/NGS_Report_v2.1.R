@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 
-# NGS_Report_v2.1.R - FINAL DEBUGGED VERSION
+# NGS_Report_v2.1.R
 
 utils::globalVariables(c(
   "Plasmid", "Contig", ".", "Lab_ID", "Original_ID", "Index", "Platform",
@@ -10,7 +10,6 @@ utils::globalVariables(c(
   "GC_num", "N50_formatted", "Q30%"
 ))
 
-# --- ARGUMENT PARSING ---
 args <- commandArgs(trailingOnly = TRUE)
 
 if (length(args) < 9) PIPELINE_MODE_ARG <- "ONT_DEFAULT" else PIPELINE_MODE_ARG <- toupper(args[9])
@@ -26,7 +25,6 @@ PLASMID_DIR  <- args[6]
 AMR_DIR      <- args[7]
 ASSEMBLY_DIR <- args[8]
 
-# --- LIBRARIES ---
 suppressPackageStartupMessages({
   if (!requireNamespace("readr",    quietly = TRUE)) install.packages("readr")
   if (!requireNamespace("dplyr",    quietly = TRUE)) install.packages("dplyr")
@@ -46,12 +44,6 @@ library(stringr)
 library(openxlsx)
 library(utils)
 library(jsonlite)
-
-# --- DEBUG HEADER ---
-cat("========================================\n")
-cat("DEBUG: R Script - Final Fix\n")
-cat("DEBUG: Looking for logs in:", LOGS_DIR, "\n")
-cat("========================================\n")
 
 # --- UTILITY FUNCTIONS ---
 
@@ -184,66 +176,40 @@ read_fastp_q30 <- function(json_path) {
   return(round(as.numeric(rate) * 100, 2))
 }
 
-# --- ROBUST VERSION SCRAPER (SIMPLE SPLIT) ---
+# --- ROBUST VERSION SCRAPER ---
 get_pipeline_versions <- function(logs_dir) {
-  if (logs_dir == "" || !dir.exists(logs_dir)) {
-      cat("DEBUG: Logs dir empty or not found.\n")
-      return(list())
-  }
+  if (logs_dir == "" || !dir.exists(logs_dir)) return(list())
   
   versions_list <- list()
   
-  # Search for versions.txt and versions.yml
   v_files <- list.files(logs_dir, pattern = "versions\\.(txt|yml)$", recursive = TRUE, full.names = TRUE)
-  # Search for db_version.txt
   db_files <- list.files(logs_dir, pattern = "db_version.txt", recursive = TRUE, full.names = TRUE)
-  
-  cat("DEBUG: Found", length(v_files), "tool version files.\n")
   
   get_tool_name <- function(path) {
     parts <- unlist(strsplit(dirname(path), .Platform$file.sep))
     tail(parts, 1)
   }
   
-  # --- PARSE TOOLS (SIMPLE SPLIT) ---
   for (f in v_files) {
     tool_name <- get_tool_name(f)
-    
-    # Init if missing
-    if (is.null(versions_list[[tool_name]])) {
-        versions_list[[tool_name]] <- list(tool = NA, db = NA)
-    }
-    
-    # Skip if we already found the tool version
+    if (is.null(versions_list[[tool_name]])) versions_list[[tool_name]] <- list(tool = NA, db = NA)
     if (!is.na(versions_list[[tool_name]]$tool)) next 
-    
     lines <- readLines(f, warn = FALSE)
     for (line in lines) {
       if (grepl("^\\s*#", line) || trimws(line) == "") next
-      
-      # Simple split by first colon
       parts <- unlist(strsplit(line, ":", fixed = TRUE))
-      
       if (length(parts) >= 2) {
-        # Clean Key
         key_raw <- trimws(parts[1])
         key_raw <- gsub('["\']', '', key_raw)
-        
-        # Clean Value (join rest parts in case value has colons)
         val_raw <- trimws(paste(parts[2:length(parts)], collapse=":"))
         val_raw <- gsub('["\']', '', val_raw)
-        
-        # FIX: Ensure Value is not empty
         if (val_raw == "") next
-        
-        # Filter unwanted Nextflow keys
         if (!grepl("process", key_raw, ignore.case=TRUE) && 
             !grepl("workflow", key_raw, ignore.case=TRUE) &&
             !grepl("module", key_raw, ignore.case=TRUE) &&
             !grepl("cpus", key_raw, ignore.case=TRUE) &&
-            !grepl("memory", key_raw, ignore.case=TRUE)) {
-            
-            cat("DEBUG: Captured ->", tool_name, ":", val_raw, "\n")
+            !grepl("memory", key_raw, ignore.case=TRUE) &&
+            !grepl("container", key_raw, ignore.case=TRUE)) {
             versions_list[[tool_name]]$tool <- val_raw
             break 
         }
@@ -251,49 +217,28 @@ get_pipeline_versions <- function(logs_dir) {
     }
   }
   
-  # --- PARSE DATABASES (BAKTA FIX) ---
   for (f in db_files) {
     tool_name <- get_tool_name(f)
-    
-    if (is.null(versions_list[[tool_name]])) {
-        versions_list[[tool_name]] <- list(tool = NA, db = NA)
-    }
-    
+    if (is.null(versions_list[[tool_name]])) versions_list[[tool_name]] <- list(tool = NA, db = NA)
     if (!is.na(versions_list[[tool_name]]$db)) next
-    
     content <- readLines(f, warn = FALSE, n = 1)
     if (length(content) > 0) {
         content <- trimws(content)
-        
-        # --- FIX: Clean Bakta Path ---
         if (tool_name == "Bakta") {
-            # Remove "Database path used:" prefix if present
             clean_path <- gsub("Database path used:\\s*", "", content, ignore.case = TRUE)
             clean_path <- trimws(clean_path)
-            
-            cat("DEBUG: Bakta Clean Path:", clean_path, "\n")
-            
             bakta_json_path <- file.path(clean_path, "version.json")
-            
             if (file.exists(bakta_json_path)) {
                 tryCatch({
                     bk <- jsonlite::read_json(bakta_json_path)
-                    # Format: v6.0 light (2025-02-24)
                     content <- sprintf("v%s.%s %s (%s)", bk$major, bk$minor, bk$type, bk$date)
-                    cat("DEBUG: Parsed Bakta JSON:", content, "\n")
-                }, error = function(e) {
-                    cat("DEBUG: Error reading Bakta JSON:", e$message, "\n")
-                })
-            } else {
-                cat("DEBUG: Bakta JSON missing at:", bakta_json_path, "\n")
+                }, error = function(e) { content <- paste(content, "(JSON Error)") })
             }
         }
-        
         versions_list[[tool_name]]$db <- content
     }
   }
   
-  # Format Final List
   final_v <- list()
   for (t in names(versions_list)) {
       entry <- versions_list[[t]]
@@ -312,7 +257,7 @@ get_pipeline_versions <- function(logs_dir) {
 # --- MAIN LOGIC ---
 
 final_columns <- c(
-  "Lab ID", "Original ID", "Index", "Platform", 
+  "Lab ID", "Original ID", "Index", "Platform",
   "Contig Number", "Circular Contigs", "Genome Length", "N50", "Depth", "Q30%", "GC content", "Largest Contig", 
   "Expected Organism", 
   "Detected Organism", "Detection (rMLST)", "ST", "Clonal Complex", 
@@ -322,21 +267,25 @@ final_columns <- c(
 )
 
 sample_df <- readr::read_csv(SAMPLE_SHEET, show_col_types = FALSE, progress = FALSE, trim_ws = TRUE)
+
+# Ensure Comments column exists and only take from sample sheet
+if (!"Comments" %in% names(sample_df)) {
+  sample_df$Comments <- ""
+}
 base_part <- sample_df %>% transmute(Lab_ID, Original_ID, Index, Platform, Expected_Organism, Comments)
 
-cat("DEBUG: Processing QUAST...\n")
-quast_to_final <- c("# contigs"="Contig Number", "Total length"="Genome Length", "N50"="N50", "Avg. coverage depth"="Depth", "GC (%)"="GC content", "Largest contig"="Largest Contig")
 quast_part <- purrr::map_dfr(base_part$Lab_ID, function(iso_id) {
   tsv <- find_isolate_file(QUAST_DIR, iso_id, suffix_regex = ".*\\.tsv$")
   met <- read_quast_metrics(tsv)
-  vals <- setNames(vector("list", length(quast_to_final)), unname(quast_to_final))
-  for (k in names(quast_to_final)) vals[[quast_to_final[[k]]]] <- met[[k]]
+  vals <- setNames(vector("list", length(c("# contigs"="Contig Number", "Total length"="Genome Length", "N50"="N50", "Avg. coverage depth"="Depth", "GC (%)"="GC content", "Largest contig"="Largest Contig"))), unname(c("# contigs"="Contig Number", "Total length"="Genome Length", "N50"="N50", "Avg. coverage depth"="Depth", "GC (%)"="GC content", "Largest contig"="Largest Contig")))
+  # Re-doing explicit map for safety
+  quast_map <- c("# contigs"="Contig Number", "Total length"="Genome Length", "N50"="N50", "Avg. coverage depth"="Depth", "GC (%)"="GC content", "Largest contig"="Largest Contig")
+  for (k in names(quast_map)) vals[[quast_map[[k]]]] <- met[[k]]
   tibble::as_tibble(vals)
 })
 
 platform_col <- base_part %>% transmute(Platform = Platform) 
 
-cat("DEBUG: Processing Assembly Info...\n")
 circular_contigs_col <- tibble(`Circular Contigs` = purrr::map_chr(base_part$Lab_ID, function(iso_id) {
     platform <- base_part %>% filter(Lab_ID == iso_id) %>% pull(Platform) %>% first()
     platform_search <- ifelse(is.na(platform) || platform == "", NULL, platform)
@@ -345,13 +294,11 @@ circular_contigs_col <- tibble(`Circular Contigs` = purrr::map_chr(base_part$Lab
     return(read_assembly_info_circular_count(candidate))
 }))
 
-cat("DEBUG: Processing FastP Q30...\n")
 q30_col <- tibble(`Q30%` = purrr::map_dbl(base_part$Lab_ID, function(iso_id) {
   json_file <- find_isolate_file(FASTP_DIR, iso_id, suffix_regex = ".*\\.json$")
   read_fastp_q30(json_file)
 }))
 
-cat("DEBUG: Processing Typing...\n")
 org_col <- tibble(`Detected Organism` = purrr::map_chr(base_part$Lab_ID, function(iso_id) {
   tsv <- find_isolate_file(RMLST_DIR, iso_id, suffix_regex = ".*\\.tsv$")
   read_rmlst_taxon(tsv)
@@ -386,12 +333,13 @@ vir_col <- tibble(`Virulence Genes (>90% cov, >90% ID, AMRFinderPlus)` = purrr::
 }))
 clonal_complex_col <- tibble(`Clonal Complex` = NA_character_)
 
+# Explicitly binding Comments from base_part (which comes from Sample Sheet)
 final_report <- bind_cols(
   base_part %>% transmute(`Lab ID` = Lab_ID, `Original ID` = Original_ID, Index),
   platform_col, quast_part, circular_contigs_col, q30_col,
   base_part %>% transmute(`Expected Organism` = Expected_Organism),
   org_col, det_col, st_col, clonal_complex_col, plasmid_col, amr_col, point_col, pred_col, vir_col,
-  base_part %>% transmute(Comments)
+  base_part %>% transmute(Comments) 
 )
 
 missing_cols <- setdiff(final_columns, names(final_report))
@@ -439,8 +387,8 @@ final_report <- final_report %>%
     `GC content` = ifelse(is.na(GC_num), NA_character_, paste0(round(GC_num, 1), "%"))
   ) %>%
   select(-GC_num, -N50_formatted)
+# Comments column is NOT modified here, ensuring only sample sheet info is kept.
 
-cat("DEBUG: Aggregating Stats...\n")
 calculate_stats <- function(report, logs_dir) {
   found_versions <- get_pipeline_versions(logs_dir)
   list(
@@ -453,9 +401,6 @@ calculate_stats <- function(report, logs_dir) {
   )
 }
 stats <- calculate_stats(final_report, LOGS_DIR)
-
-cat("DEBUG: Final Versions Object:\n")
-print(stats$versions)
 
 final_report_json <- as.data.frame(final_report)
 final_report_json[is.na(final_report_json)] <- ""
@@ -491,4 +436,4 @@ if (file.exists(js_file)) {
   cat("JS file not found.\n")
 }
 
-cat("DEBUG: Done.\n")
+cat("Done.\n")

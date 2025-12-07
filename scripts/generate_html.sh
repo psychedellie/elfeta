@@ -43,7 +43,7 @@ cat <<'EOF' > "$OUTPUT_FILE"
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AMRFinderPlus | Report</title>
+    <title>AMRFinderPlus Report</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/datatables/1.10.21/js/jquery.dataTables.min.js"></script>
@@ -59,42 +59,138 @@ cat <<'EOF' > "$OUTPUT_FILE"
 
     <style>
         :root {
-            --primary-color: #2c3e50;
-            --secondary-color: #3498db;
-            --light-bg: #f8f9fa;
-            --text-color: #333;
+            /* REFINED THEME: Less Black, Softer Blue */
+            --bg-body: #f4f6f8;        
+            --bg-card: #ffffff;        
+            
+            --primary-color: #34495e;  /* Softer Slate */
+            --secondary-color: #3498db;/* Classic Blue */
+            
+            /* Table Header Colors */
+            --header-bg: #e9ecef;      
+            --header-text: #2c3e50;    
+            --header-border: #bdc3c7;  
+            
+            --text-main: #2c3e50;
+            --text-muted: #7f8c8d;
+            
+            --border-color: #dfe6e9;
         }
-        body { font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; background-color: var(--light-bg); color: var(--text-color); margin: 0; padding: 20px; }
-        .container { max-width: 98%; margin: 0 auto; background: white; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.1); padding: 20px; }
+
+        body { 
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; 
+            background-color: var(--bg-body); 
+            color: var(--text-main); 
+            margin: 0; 
+            padding: 25px; 
+        }
+
+        .container { 
+            max-width: 98%; 
+            margin: 0 auto; 
+            background: var(--bg-card); 
+            border-radius: 8px; 
+            box-shadow: 0 2px 15px rgba(0,0,0,0.05); 
+            padding: 25px; 
+            border: 1px solid #e1e4e8;
+        }
         
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid var(--secondary-color); }
-        .header h1 { margin: 0; color: var(--primary-color); font-size: 1.8rem; }
-        .header-info { color: #7f8c8d; font-size: 0.9rem; }
+        /* HEADER */
+        .header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 30px; 
+            padding-bottom: 15px; 
+            border-bottom: 2px solid var(--secondary-color);
+        }
+        .header h1 { margin: 0; color: var(--primary-color); font-weight: 600; font-size: 1.8rem; letter-spacing: -0.5px; }
+        .header-info { color: var(--text-muted); font-weight: 500; }
 
-        /* Stats Cards */
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px; }
-        .stat-card { background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)); color: white; padding: 25px; border-radius: 8px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .stat-value { font-size: 2.5em; font-weight: bold; margin: 10px 0; }
-        .stat-label { font-size: 0.9em; opacity: 0.9; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
+        /* STATS CARDS - SWEETER BLUE */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .stat-card { 
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)); 
+            color: white; 
+            padding: 25px; 
+            border-radius: 8px; 
+            text-align: center; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            border: none;
+        }
+        .stat-value { font-size: 2.0em; font-weight: 700; margin: 10px 0; } /* Reduced Font */
+        .stat-label { font-size: 0.85em; text-transform: uppercase; letter-spacing: 1px; opacity: 0.9; font-weight: 600; }
 
-        /* Table Styling */
-        table.dataTable { width: 100% !important; border-collapse: collapse; }
-        table.dataTable thead th { background-color: var(--primary-color); color: white; font-weight: 600; padding: 12px; border-bottom: none; white-space: nowrap; }
-        table.dataTable tbody td { padding: 10px; vertical-align: middle; border-bottom: 1px solid #eee; }
-        table.dataTable tbody tr:hover { background-color: #f1f8ff; }
+        /* DATATABLES STYLING */
+        .dataTables_wrapper { margin-top: 20px; }
+        table.dataTable { width: 100% !important; margin: 0 auto !important; font-size: 0.85em; border-collapse: collapse !important; }
         
-        /* Buttons */
-        .dt-buttons .dt-button { background: var(--secondary-color) !important; color: white !important; border: none !important; border-radius: 4px !important; padding: 5px 15px !important; font-size: 0.9em !important; }
-        .dt-buttons .dt-button:hover { background: var(--primary-color) !important; }
+        /* Header: CENTER ALIGNED VERTICALLY */
+        table.dataTable thead th { 
+            background-color: var(--header-bg) !important; 
+            color: var(--header-text) !important; 
+            padding: 12px 10px !important; 
+            text-align: center !important; 
+            vertical-align: middle !important; /* Centered Vertically */
+            font-weight: 700;
+            border-bottom: 2px solid var(--header-border) !important;
+        }
 
-        /* Child Row Grid (Responsive Details) */
-        table.dataTable > tbody > tr.child > td.child { padding: 20px !important; background-color: #fafafa; }
-        .child-details-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; width: 100%; text-align: left; }
-        .detail-item { background: white; border: 1px solid #dee2e6; border-radius: 6px; padding: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-        .detail-label { font-size: 0.75em; text-transform: uppercase; color: #7f8c8d; margin-bottom: 8px; font-weight: bold; display: block; }
-        .detail-value { font-size: 1em; color: var(--primary-color); word-wrap: break-word; white-space: normal; line-height: 1.4; }
+        /* Body: Right Aligned */
+        table.dataTable tbody td { 
+            padding: 10px 10px !important; 
+            text-align: right !important; 
+            border-bottom: 1px solid #e0e0e0 !important; 
+            vertical-align: middle;
+            color: #2c3e50;
+        }
+        table.dataTable tbody tr:hover { background-color: #f8f9fa !important; }
+        
+        /* EXPORT BUTTONS */
+        .dt-buttons .dt-button { 
+            background: var(--secondary-color) !important; 
+            color: white !important; 
+            border: none !important; 
+            border-radius: 4px !important; 
+            padding: 4px 12px !important; 
+            font-size: 0.85em !important; 
+            margin-right: 5px;
+            font-weight: 600;
+        }
+        .dt-buttons .dt-button:hover { background: var(--primary-color) !important; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
 
-        .footer-legend { margin-top: 30px; padding: 15px; background-color: #f1f8ff; border-left: 5px solid var(--secondary-color); border-radius: 4px; font-size: 0.9em; }
+        /* SLIM SEARCH BOX */
+        div.dataTables_filter { margin-bottom: 10px; }
+        div.dataTables_filter label { font-weight: normal; white-space: nowrap; }
+        div.dataTables_filter input { 
+            border: 1px solid #bdc3c7; 
+            border-radius: 4px; 
+            padding: 2px 8px; 
+            margin-left: 12px; 
+            height: 26px; 
+            font-size: 0.9em;
+            width: 200px;
+        }
+
+        /* CHILD ROW (DETAILS GRID) */
+        table.dataTable > tbody > tr.child > td.child { padding: 25px !important; background-color: #f8f9fa !important; border-top: 3px solid var(--secondary-color); text-align: left !important; }
+        .child-details-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; width: 100%; text-align: left; }
+        .detail-item { background: white; border: 1px solid #e1e4e8; border-radius: 6px; padding: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .detail-label { font-size: 0.8em; text-transform: uppercase; color: #7f8c8d; margin-bottom: 6px; font-weight: 700; letter-spacing: 0.5px; border-bottom: 1px solid #eee; padding-bottom: 4px; display: block; }
+        .detail-value { font-size: 1em; color: var(--text-main); word-wrap: break-word; line-height: 1.4; font-weight: 500; margin-top: 5px; }
+
+        /* Plus icon style */
+        table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control:before {
+            background-color: var(--secondary-color);
+            border: none;
+            box-shadow: none;
+            color: white;
+            font-weight: bold;
+            line-height: 14px;
+        }
+        
+        .footer-legend { margin-top: 30px; padding: 20px; background-color: #f8f9fa; border-left: 5px solid var(--secondary-color); border-radius: 6px; font-size: 0.9em; }
+        .footer-legend h4 { margin-top: 0; margin-bottom: 10px; color: var(--primary-color); font-weight: 700; }
     </style>
 </head>
 <body>
@@ -106,16 +202,20 @@ cat <<'EOF' > "$OUTPUT_FILE"
 
         <div class="stats-grid">
             <div class="stat-card">
-                <div class="stat-label">Total Samples</div>
+                <div class="stat-label">Samples</div>
                 <div class="stat-value" id="stat-samples">0</div>
             </div>
             <div class="stat-card">
-                <div class="stat-label">Predicted Phenotypes</div>
+                <div class="stat-label">Unique Genes</div>
+                <div class="stat-value" id="stat-elements">0</div>
+            </div>
+             <div class="stat-card">
+                <div class="stat-label">Phenotypes</div>
                 <div class="stat-value" id="stat-subclasses">0</div>
             </div>
         </div>
 
-        <table id="report-table" class="display responsive nowrap" style="width:100%">
+        <table id="report-table" class="display responsive nowrap hover stripe order-column" style="width:100%">
             <thead>
 EOF
 
@@ -191,7 +291,7 @@ cat <<'EOF' >> "$OUTPUT_FILE"
 
         <div class="footer-legend">
             <h4><i class="fas fa-info-circle"></i> Guide</h4>
-            <p><strong>Note:</strong> Technical details (Method, Class, Alignment Length, etc.) are hidden in the main view. Click the green <strong>(+)</strong> button to view them.</p>
+            <p><strong>Note:</strong> Technical details (Method, Class, Alignment Length, etc.) are hidden in the main view to keep the table clean. Click the blue <strong>(+)</strong> button on the left of any row to view full details.</p>
         </div>
     </div>
 
@@ -199,14 +299,14 @@ cat <<'EOF' >> "$OUTPUT_FILE"
         $(document).ready(function() {
             $("#generation-date").text(new Date().toLocaleString());
 
-            // 1. Identify Column Indices dynamically
+            // 1. Identify Column Indices dynamically for Hiding/Stats
             var headers = $('#report-table thead th').map(function() { return $(this).text().trim().toLowerCase(); }).get();
             
-            var cols_to_hide_in_child = []; // Array of indices to force into child row (hidden in main)
-            var cols_priority = [0, 1]; // Sample ID and Gene Name always visible
+            var cols_to_hide_in_child = []; // Columns to hide from main view (show in child row)
+            var cols_priority = [0, 1]; // Sample ID and Element Name always visible
 
             // Find specific column indices
-            var idx_class = -1, idx_subclass = -1, idx_type = -1, idx_scope = -1, idx_method = -1, idx_align_len = -1;
+            var idx_class = -1, idx_subclass = -1, idx_element = -1, idx_type = -1, idx_scope = -1, idx_method = -1, idx_align_len = -1;
             
             headers.forEach(function(h, i) {
                 // Identify columns we want to HIDE (Method, Class, Type, Scope, Alignment Length)
@@ -216,17 +316,16 @@ cat <<'EOF' >> "$OUTPUT_FILE"
                 if(h === 'method') idx_method = i;
                 if(h.includes('alignment length')) idx_align_len = i;
                 
-                // Identify columns we want VISIBLE
-                if(h.includes('subclass') || h.includes('predicted phenotype')) {
-                    idx_subclass = i;
-                    cols_priority.push(i);
-                }
-                
-                // Give high priority to coverage and identity so they don't disappear
+                // Identify columns for STATS
+                if(h === 'element' || h === 'gene symbol') idx_element = i;
+                if(h.includes('predicted phenotype')) idx_subclass = i;
+
+                // Identify columns we want VISIBLE (High Priority)
+                if(h.includes('predicted phenotype')) cols_priority.push(i);
                 if(h.includes('coverage') || h.includes('identity')) cols_priority.push(i);
             });
 
-            // Push all "Hidden" columns to the array
+            // Push all "Technical" columns to the hide list
             if(idx_type > -1) cols_to_hide_in_child.push(idx_type);
             if(idx_scope > -1) cols_to_hide_in_child.push(idx_scope);
             if(idx_class > -1) cols_to_hide_in_child.push(idx_class);
@@ -239,15 +338,16 @@ cat <<'EOF' >> "$OUTPUT_FILE"
                 pageLength: 25,
                 lengthMenu: [ [10, 25, 50, -1], [10, 25, 50, "All"] ],
                 buttons: ['copyHtml5', 'excelHtml5', 'csvHtml5'],
+                order: [[0, "asc"]],
                 responsive: {
                     details: {
                         renderer: function ( api, rowIdx, columns ) {
-                            // Custom Card Grid for child row
+                            // Custom Card Grid for child row details
                             var data = $.map( columns, function ( col, i ) {
                                 return col.hidden ?
                                     '<div class="detail-item">' +
                                         '<div class="detail-label">' + col.title + '</div>' +
-                                        '<div class="detail-value">' + col.data + '</div>' +
+                                        '<div class="detail-value">' + (col.data ? col.data : '-') + '</div>' +
                                     '</div>' :
                                     '';
                             } ).join( '' );
@@ -256,37 +356,41 @@ cat <<'EOF' >> "$OUTPUT_FILE"
                     }
                 },
                 columnDefs: [
-                    // The class 'none' forces the column to be hidden in table but shown in child row
+                    // The class 'none' forces the column to be hidden in table but shown in child row popup
                     { targets: cols_to_hide_in_child, className: 'none' },
-                    
-                    // Prioritize Coverage, Identity, and Subclass (Predicted Phenotype)
                     { targets: cols_priority, responsivePriority: 1 } 
                 ],
                 initComplete: function() {
-                    calculateStats(this.api(), idx_subclass);
+                    calculateStats(this.api());
                 }
             });
 
             table.on('draw', function () {
-                calculateStats(table, idx_subclass);
+                calculateStats(table);
             });
 
-            function calculateStats(api, subclassIndex) {
+            function calculateStats(api) {
                 // 1. Total Samples (Unique values in Col 0)
                 var uniqueSamples = new Set();
+                var uniqueElements = new Set();
                 var uniqueSubclasses = new Set();
 
                 api.rows({ search: 'applied' }).every(function() {
                     var d = this.data();
                     uniqueSamples.add(d[0]); 
-                    // 2. Predicted Phenotypes (Subclasses) Detected
-                    if(subclassIndex > -1) {
-                         var val = d[subclassIndex];
+                    
+                    if(idx_element > -1) {
+                         var val = d[idx_element];
+                         if(val && val !== 'NA' && val !== '') uniqueElements.add(val);
+                    }
+                    if(idx_subclass > -1) {
+                         var val = d[idx_subclass];
                          if(val && val !== 'NA' && val !== '') uniqueSubclasses.add(val);
                     }
                 });
 
                 $('#stat-samples').text(uniqueSamples.size);
+                $('#stat-elements').text(uniqueElements.size);
                 $('#stat-subclasses').text(uniqueSubclasses.size);
             }
         });
@@ -295,4 +399,4 @@ cat <<'EOF' >> "$OUTPUT_FILE"
 </html>
 EOF
 
-echo "Advanced HTML report generated: $OUTPUT_FILE"
+echo "AMRFinderPlus HTML report generated: $OUTPUT_FILE"

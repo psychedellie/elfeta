@@ -1,7 +1,6 @@
 #!/usr/bin/env nextflow
 nextflow.enable.dsl=2
 
-// --- All includes are fine here ---
 include { SHOW_HELP }               from './workflows/utils/help_utils.nf'
 include { VAL_PARAMS }              from './workflows/utils/val_params.nf'
 include { DB_SETUP }                from './workflows/utils/db_setup.nf'
@@ -12,14 +11,12 @@ include { LP_PIPELINE }             from './workflows/main/lp_pipeline.nf'
 include { REPORT }                  from './modules/utils/report.nf'
 include { AMRFINDER_HTML }          from './modules/utils/amrfinder_html.nf'
 
-// --- Helper function(s) ---
 def absPath(p) {
     if (!p) return null
     def f = file(p)
     return f.exists() ? f.toRealPath().toString() : f.toAbsolutePath().toString()
 }
 
-// --- Parameter initialization function ---
 def initParams() {
     params.input_dir   = absPath(params.input_dir)
     params.output_dir  = absPath(params.output_dir)
@@ -57,7 +54,6 @@ workflow {
 
     def sample_sheet = channel.of(file(params.sample_sheet))
 
-    // --- Determine Assembly dir based on mode ---
     def assembly_dir_to_pass = ''
 
     if (params.mode == 'ont' || params.mode == 'sp') {
@@ -72,41 +68,45 @@ workflow {
 
     if (params.mode == 'ont') {
         def ont_results = ONT_PIPELINE()
-        def all_completed = ont_results.Published_Results.collect()
 
-        // Collect unique parent directories of flye_out.txt files (if any)
+        def amrfinder_files = ont_results.ARGs_PMs_VGs.map { _sample_id, file -> file }.collect()
+        def amr_html_done = AMRFINDER_HTML(amrfinder_files)
+
+        def all_completed = ont_results.Published_Results.mix(amr_html_done).collect()
+
         def assembly_info_dirs = ont_results.Assembly_Info_Files
             .map { sample_id, file -> file.getParent() }
             .unique()
             .collect()
 
-        // assembly_info_dirs is a list of strings (possibly empty). Join into single string path
-        // If there are multiple distinct parent dirs, we pass the common assembly_dir_to_pass (assembly folder),
-        // otherwise pass the single discovered parent dir.
         def assembly_info_arg = ''
         if (assembly_info_dirs.size() == 1) {
             assembly_info_arg = assembly_info_dirs[0]
         } else {
-            // prefer explicit assembly_dir_to_pass if provided, otherwise fall back to output/Results/AssemblyMetrics
             assembly_info_arg = assembly_dir_to_pass ?: (assembly_info_dirs.size() ? assembly_info_dirs[0] : '')
         }
 
         REPORT(file(params.output_dir), sample_sheet, all_completed, params.mode, assembly_dir_to_pass)
-        def amrfinder_files = ont_results.ARGs_PMs_VGs.map { _sample_id, file -> file }.collect()
-        AMRFINDER_HTML(amrfinder_files)
     }
 
     if (params.mode == 'iln') {
         def iln_results = ILN_PIPELINE()
-        def all_completed = iln_results.Published_Results.collect()
-        REPORT(file(params.output_dir), sample_sheet, all_completed, params.mode, '')
+
         def amrfinder_files = iln_results.ARGs_PMs_VGs.map { _sample_id, file -> file }.collect()
-        AMRFINDER_HTML(amrfinder_files)
+        def amr_html_done = AMRFINDER_HTML(amrfinder_files)
+
+        def all_completed = iln_results.Published_Results.mix(amr_html_done).collect()
+        
+        REPORT(file(params.output_dir), sample_sheet, all_completed, params.mode, '')
     }
 
     if (params.mode == 'sp') {
         def sp_results = SP_PIPELINE()
-        def all_completed = sp_results.Published_Results.collect()
+
+        def amrfinder_files = sp_results.ARGs_PMs_VGs.map { _sample_id, file -> file }.collect()
+        def amr_html_done = AMRFINDER_HTML(amrfinder_files)
+
+        def all_completed = sp_results.Published_Results.mix(amr_html_done).collect()
 
         def assembly_info_dirs = sp_results.Assembly_Info_Files
             .map { sample_id, file -> file.getParent() }
@@ -121,15 +121,16 @@ workflow {
         }
 
         REPORT(file(params.output_dir), sample_sheet, all_completed, params.mode, assembly_dir_to_pass)
-        def amrfinder_files = sp_results.ARGs_PMs_VGs.map { _sample_id, file -> file }.collect()
-        AMRFINDER_HTML(amrfinder_files)
     }
 
     if (params.mode == 'lp') {
         def lp_results = LP_PIPELINE()
-        def all_completed = lp_results.Published_Results.collect()
-        REPORT(file(params.output_dir), sample_sheet, all_completed, params.mode, '')
+
         def amrfinder_files = lp_results.ARGs_PMs_VGs.map { _sample_id, file -> file }.collect()
-        AMRFINDER_HTML(amrfinder_files)
+        def amr_html_done = AMRFINDER_HTML(amrfinder_files)
+
+        def all_completed = lp_results.Published_Results.mix(amr_html_done).collect()
+        
+        REPORT(file(params.output_dir), sample_sheet, all_completed, params.mode, '')
     }
 }

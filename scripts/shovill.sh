@@ -26,3 +26,5 @@ shovill ${args} \
   --force \
   --cpus "$threads" \
   --ram $((mem_mb / 1000)) 
+
+  shovill --version > versions.txt

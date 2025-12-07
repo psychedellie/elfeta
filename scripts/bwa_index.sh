@@ -21,5 +21,7 @@ bwa-mem2 index ${args} \
     -p "$sample_id" \
     "$assembly"
 
+bwa-mem2 --version > versions.txt
+
 # Move Index Files
 mv "${sample_id}."* "$outdir"

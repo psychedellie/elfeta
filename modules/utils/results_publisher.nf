@@ -17,3 +17,4 @@ process RESULTS_PUBLISHER {
         cp "${result_file}" "${tool}/${sample_id}_\${MODE_UPPER}.${result_file.extension}"
         """
 }
+

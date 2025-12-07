@@ -25,3 +25,5 @@ polypolish filter ${args} \
     --in2 "$sam2" \
     --out1 "${outdir}/${sample_id}.filtered_1.sam" \
     --out2 "${outdir}/${sample_id}.filtered_2.sam"
+
+polypolish --version > versions.txt

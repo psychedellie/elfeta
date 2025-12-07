@@ -5,7 +5,7 @@ nextflow.enable.dsl=2
 include { NORMALIZE_SHORTREADS } from '../../modules/utils/normalization.nf'
 include { FASTP }                from '../../modules/qc/fastp.nf'
 include { SHOVILL }              from '../../modules/assembly/shovill.nf'
-include { QUAST }                from '../../modules/assembly/quast_iln.nf'
+include { QUAST_ILN }            from '../../modules/assembly/quast_iln.nf'
 include { BAKTA }                from '../../modules/typing/bakta.nf'
 include { RMLST }                from '../../modules/typing/rmlst.nf'
 include { MLST }                 from '../../modules/typing/mlst.nf'
@@ -23,12 +23,13 @@ workflow ILN_PIPELINE {
 
         // --- Input Logic ---
         def normalized_out = NORMALIZE_SHORTREADS(file(params.input_dir))
-        def fastp_in_ch = normalized_out.samples_tsv.map { tsv_file ->
-            file(tsv_file).parent
-        }
+        def fastp_input = normalized_out.tsv
+                .map { tsv_file -> 
+                file(tsv_file).parent              // directory containing the TSV
+            }
+            .unique()                              // avoid passing duplicates
 
-        // --- QC ---
-        def fastp_out = FASTP(fastp_in_ch, params.fastp)
+        def fastp_out = FASTP(fastp_input, params.fastp)
 
         def hq_reads = fastp_out.filtered
             .flatten()
@@ -60,7 +61,7 @@ workflow ILN_PIPELINE {
         def quast_in = hq_reads.join(final_assembly).map { sample_id, read1, read2, assembly_file ->
             tuple(sample_id, read1, read2, assembly_file)
         }
-        def quast_out = QUAST(quast_in, params.quast)
+        def quast_out = QUAST_ILN(quast_in, params.quast)
 
         def bakta_in = final_assembly.map { sample_id, assembly_file ->
             tuple(sample_id, assembly_file)
@@ -93,7 +94,7 @@ workflow ILN_PIPELINE {
             .mix(amrfinder_out.txt.map       { sample_id, amr_file -> tuple(sample_id, amr_file, 'AMRFinderPlus', params.mode) })
             .mix(mlst_out.tsv.map            { sample_id, mlst_file -> tuple(sample_id, mlst_file, 'MLST', params.mode) })
             .mix(plasmidfinder_out.tsv.map   { sample_id, tsv_file -> tuple(sample_id, tsv_file, 'PlasmidFinder', params.mode) })
-            .mix(quast_out.txt.map           {  sample_id, metrics_file -> tuple(sample_id, metrics_file, 'QUAST', params.mode) })
+            .mix(quast_out.tsv.map           { sample_id, metrics_file -> tuple(sample_id, metrics_file, 'QUAST', params.mode) })
             .mix(bakta_out.tsv.map           { sample_id, tsv_file -> tuple(sample_id, tsv_file, 'Bakta', params.mode) })
             .mix(bakta_out.faa.map           { sample_id, faa_file -> tuple(sample_id, faa_file, 'Bakta', params.mode) })
             .mix(bakta_out.gbff.map          { sample_id, gbff_file -> tuple(sample_id, gbff_file, 'Bakta', params.mode) })
@@ -102,12 +103,12 @@ workflow ILN_PIPELINE {
         def results_out = RESULTS_PUBLISHER(results_in)
 
     emit:
-        filtered_reads  = hq_reads
-        assembly        = final_assembly
-        annotation      = bakta_out
-        MLST            = mlst_out.tsv
-        metrics         = quast_out.tsv
-        amrfinderplus   = amrfinder_out.txt
-        plasmidfinder   = plasmidfinder_out
-        published_files = results_out
+        filtered_reads        = hq_reads
+        Final_Assembly        = final_assembly
+        Gene_Annotation       = bakta_out.outdir
+        Sequence_Typing       = mlst_out.tsv
+        Sequencing_Metrics    = quast_out.tsv
+        ARGs_PMs_VGs          = amrfinder_out.txt
+        Plasmid_Profiles      = plasmidfinder_out.outdir
+        Published_Results     = results_out
 }

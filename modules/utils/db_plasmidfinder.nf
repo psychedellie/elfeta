@@ -4,10 +4,8 @@ process DB_PLASMIDFINDER {
 
     conda "${params.envs_dir}/git.yaml"
 
-    // Copy final result into the permanent database root
     publishDir "${params.db_root}", mode: 'move'
 
-    // Directory created inside the sandbox that Nextflow should collect
     output:
         path("plasmidfinder"), emit: db_path
 

@@ -25,3 +25,5 @@ medaka_consensus ${args} \
     -d "$assembly" \
     -o "$outdir" \
     -t "$threads"
+
+medaka --version > versions.txt

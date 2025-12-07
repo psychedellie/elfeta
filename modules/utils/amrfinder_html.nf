@@ -1,6 +1,5 @@
 process AMRFINDER_HTML {
     tag "AMRFinderPlus_Report"
-    
     publishDir "${params.output_dir}/Results/AMRFinderPlus/", mode: 'copy'
 
     input:
@@ -9,10 +8,10 @@ process AMRFINDER_HTML {
     output:
     path "amrfinderplus_report.html", emit: amrfinder_html
 
-    script:    
+    script:
     """
     bash ${params.scripts_dir}/generate_html.sh \
-     --files ${amr_files.join(' ')} \
-     --output amrfinderplus_report.html 
+        --files ${amr_files.join(' ')} \
+        --output amrfinderplus_report.html
     """
 }

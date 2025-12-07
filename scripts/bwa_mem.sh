@@ -31,3 +31,5 @@ bwa-mem2 mem ${args} \
     -a "${idx_prefix}" \
     "${r2}" \
     > "samples/${sample_id}/${sample_id}_2.sam"
+
+bwa-mem2 --version > versions.txt

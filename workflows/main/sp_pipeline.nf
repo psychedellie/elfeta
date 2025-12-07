@@ -12,7 +12,7 @@ include { BWA_INDEX }            from '../../modules/assembly/bwa_index.nf'
 include { BWA_MEM }              from '../../modules/assembly/bwa_mem.nf'
 include { POLYPOLISH_FILTER }    from '../../modules/assembly/polypolish_filter.nf'
 include { POLYPOLISH_POLISH }    from '../../modules/assembly/polypolish_polish.nf'
-include { QUAST }                from '../../modules/assembly/quast_ont.nf'
+include { QUAST_ONT }            from '../../modules/assembly/quast_ont.nf'
 include { BAKTA }                from '../../modules/typing/bakta.nf'
 include { RMLST }                from '../../modules/typing/rmlst.nf'
 include { MLST }                 from '../../modules/typing/mlst.nf'
@@ -147,7 +147,7 @@ workflow SP_PIPELINE {
         def quast_in = hq_reads_ont.join(final_assembly).map { sample_id, long_fastq, assembly_file ->
             tuple(sample_id, long_fastq, assembly_file)
         }
-        def quast_out = QUAST(quast_in, params.quast)
+        def quast_out = QUAST_ONT(quast_in, params.quast)
 
         def bakta_in = final_assembly.map { sample_id, assembly_file ->
             tuple(sample_id, assembly_file)

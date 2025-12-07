@@ -27,3 +27,5 @@ polypolish polish ${args} \
     "$filtered_sam_1" \
     "$filtered_sam_2" \
     > "${out_file}"
+
+polypolish --version > versions.txt

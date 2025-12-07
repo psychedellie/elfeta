@@ -1,0 +1,16 @@
+    {
+    "fastp": "'--trim_front1 10 --trim_front2 10 --trim_tail1 1 --trim_tail2 1 --length_required 30 --average_qual 30 --trim_poly_x --trim_poly_g'",
+    "fastplong": "'--mean_qual 10 --length_required 500 --cut_front --cut_tail --cut_window_size 20 --cut_mean_quality 10'",
+    "shovill": "--minlen 30",
+    "flye": "--deterministic",
+    "medaka": "--bacteria -m r1041_e82_400bps_sup_v5.2.0",
+    "bwa_idx": "",
+    "bwa_mem": "",
+    "polypolish_filter": "",
+    "polypolish_polish": "--careful",
+    "quast": "",
+    "bakta": "--force",
+    "amrfinder": "--plus",
+    "unicycler": "--min_fasta_length 30 --depth_filter 0",
+    "useMamba": true
+}

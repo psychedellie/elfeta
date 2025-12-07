@@ -19,3 +19,5 @@ mlst \
     "$consensus" \
     --label "$label" \
     > "$output" || true
+
+mlst --version > versions.txt

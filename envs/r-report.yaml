@@ -8,3 +8,5 @@ dependencies:
   - r-purrr
   - r-stringr
   - r-openxlsx
+  - r-jsonlite
+  - nodejs=18    # NEW

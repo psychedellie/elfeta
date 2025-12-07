@@ -7,11 +7,12 @@ include { MERGE_FASTQS }         from '../../modules/utils/merge_fastqs.nf'
 include { FASTP }                from '../../modules/qc/fastp.nf'
 include { FASTPLONG }            from '../../modules/qc/fastplong.nf'
 include { UNICYCLER }            from '../../modules/assembly/unicycler.nf'
+include { MEDAKA }               from '../../modules/assembly/medaka.nf'
 include { BWA_INDEX }            from '../../modules/assembly/bwa_index.nf'
 include { BWA_MEM }              from '../../modules/assembly/bwa_mem.nf'
 include { POLYPOLISH_FILTER }    from '../../modules/assembly/polypolish_filter.nf'
 include { POLYPOLISH_POLISH }    from '../../modules/assembly/polypolish_polish.nf'
-include { QUAST }                from '../../modules/assembly/quast_ont.nf'
+include { QUAST_ILN }            from '../../modules/assembly/quast_iln.nf'
 include { BAKTA }                from '../../modules/typing/bakta.nf'
 include { RMLST }                from '../../modules/typing/rmlst.nf'
 include { MLST }                 from '../../modules/typing/mlst.nf'
@@ -123,12 +124,18 @@ workflow LP_PIPELINE {
         // Then use `hybrid_input` for Unicycler
         def unicycler_out = UNICYCLER(hybrid_input, params.unicycler)
 
+         def medaka_in = hq_reads_ont.join(unicycler_out.fasta).map { sample_id, long_fastq, assembly_file ->
+            tuple(sample_id, long_fastq, assembly_file)
+        }
+        def medaka_out = MEDAKA(medaka_in, params.medaka)
+
         // --- Hybrid Polishing ---
-        def bwa_index_out = BWA_INDEX(unicycler_out.fasta, params.bwa_idx)
+        def bwa_index_out = BWA_INDEX(medaka_out.fasta, params.bwa_idx)
         def bwa_mem_in = bwa_index_out.idx.join(hq_reads_iln).map { sample_id, _consensus_file, index_dir, read1, read2 ->
             def index_prefix = file("${index_dir}/${sample_id}")
             tuple(sample_id, index_prefix, read1, read2)
         }
+
 
         bwa_mem_in.view { sample_id, prefix, read1, read2 ->
             "BWA_MEM Input - Sample_ID: ${sample_id}, Prefix: ${prefix}, R1: ${read1.name}, R2: ${read2.name}"
@@ -150,10 +157,10 @@ workflow LP_PIPELINE {
         }
 
         // --- Analysis Tools ---
-        def quast_in = hq_reads_ont.join(final_assembly).map { sample_id, long_fastq, assembly_file ->
-            tuple(sample_id, long_fastq, assembly_file)
+        def quast_in = hq_reads_iln.join(final_assembly).map { sample_id, read1, read2, assembly_file ->
+            tuple(sample_id, read1, read2, assembly_file)
         }
-        def quast_out = QUAST(quast_in, params.quast)
+        def quast_out = QUAST_ILN(quast_in, params.quast)
 
         def bakta_in = final_assembly.map { sample_id, assembly_file ->
             tuple(sample_id, assembly_file)

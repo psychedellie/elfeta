@@ -3,7 +3,9 @@ process POLYPOLISH_POLISH {
     label "polypolish_polish"
     conda "${params.envs_dir}/polypolish.yaml"
 
-    publishDir "${params.output_dir}", mode: 'copy'
+    publishDir "${params.output_dir}/logs/${sample_id}/Polypolish_Polish", mode: 'copy', pattern: ".command.*"
+    publishDir "${params.output_dir}/logs/${sample_id}/Polypolish_Polish", mode: 'copy', pattern: "versions.txt"
+    publishDir "${params.output_dir}",                                     mode: 'copy', pattern: "samples/**"
 
     input:
         tuple val(sample_id), path(fasta), path(filtered_sam1), path(filtered_sam2) 
@@ -11,9 +13,13 @@ process POLYPOLISH_POLISH {
 
     output:
         tuple val(sample_id), path("samples/${sample_id}/polypolish/consensus.fasta"), emit: fasta
+        path "versions.txt",                                                           emit: versions
+        path ".command.*",                                                             emit: nf_logs
 
     script:
         """
+        mkdir -p "samples/${sample_id}/polypolish"
+
         bash ${params.scripts_dir}/polypolish_polish.sh \
             "${sample_id}" \
             "${fasta}" \

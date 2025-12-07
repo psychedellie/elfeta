@@ -23,3 +23,5 @@ quast ${args} \
     -o "$outdir" \
     --nanopore "$np_raw_file" \
     -t "$threads"
+
+quast --version > versions.txt

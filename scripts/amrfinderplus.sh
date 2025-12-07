@@ -31,10 +31,22 @@ if [ -n "$org_flag" ]; then
     --threads "$threads" \
     --database "$database" \
     -O "$species_name"
+
+    amrfinder --version > versions.txt
 else
     amrfinder ${args} \
     -n "$consensus" \
     -o "$output" \
     --threads "$threads" \
     --database "$database"
+
+    amrfinder --version > versions.txt
+fi
+
+# --- NEW: Capture Database Version ---
+if [ -f "${database}/version.txt" ]; then
+    cp "${database}/version.txt" db_version.txt
+else
+    # Fallback: Record the database path if no version file is found
+    echo "Database path used: ${database}" > db_version.txt
 fi

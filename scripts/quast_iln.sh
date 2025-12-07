@@ -25,3 +25,5 @@ quast "$assembly" \
     --pe2 "$raw_file_R2" \
     --threads "$threads" \
     $args
+
+quast --version > versions.txt

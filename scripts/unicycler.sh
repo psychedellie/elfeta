@@ -25,3 +25,5 @@ unicycler ${args[@]} \
   --long "$long" \
   --out "$outdir" \
   --threads "$threads" 
+
+  unicycler --version > versions.txt

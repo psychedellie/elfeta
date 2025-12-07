@@ -16,11 +16,24 @@ args="${6:-}"
 
 mkdir -p "$outdir"
 
-# Run Bakta
-# Note: Input file ($consensus) typically goes at the end for Bakta
 bakta ${args} \
       --output "$outdir" \
       --prefix "$sample_name" \
       --threads "$threads" \
       --db "$database" \
       "$consensus"
+
+bakta --version > versions.txt
+
+json_file="$database/bakta.db.json"
+
+if [ ! -f "$json_file" ]; then
+    json_file="$database/db-versions.json"
+fi
+
+if [ -f "$json_file" ]; then
+    python3 -c "import json; data=json.load(open('$json_file')); print(f\"Date: {data.get('date', 'N/A')}\nType: {data.get('type', 'N/A')}\")" > db_version.txt
+else
+    # Fallback if JSON is missing
+    echo "Database path used: $database" > db_version.txt
+fi

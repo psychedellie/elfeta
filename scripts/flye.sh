@@ -20,3 +20,5 @@ flye ${args} \
     --nano-hq "$np_raw_file" \
     --out-dir "$outdir" \
     --threads "$threads"
+
+flye --version > versions.txt

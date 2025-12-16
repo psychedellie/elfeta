@@ -1,7 +1,6 @@
 #!/usr/bin/env nextflow
 nextflow.enable.dsl=2
 
-// -- Modules --
 include { NORMALIZE_SHORTREADS } from '../../modules/utils/normalization.nf'
 include { FASTP }                from '../../modules/qc/fastp.nf'
 include { SHOVILL }              from '../../modules/assembly/shovill.nf'
@@ -14,21 +13,24 @@ include { PLASMIDFINDER }        from '../../modules/typing/plasmidfinder.nf'
 include { RESULTS_PUBLISHER }    from '../../modules/utils/results_publisher.nf'
 
 workflow ILN_PIPELINE {
-
     main:
+        def bakta_out_empty = [
+            tsv:    channel.empty(),
+            faa:    channel.empty(),
+            gbff:   channel.empty(),
+            outdir: channel.empty()
+        ]
 
         channel.fromPath(params.input_dir).view { input_path ->
             "input_dir = ${input_path}"
         }
 
-        // --- Input Logic ---
         def normalized_out = NORMALIZE_SHORTREADS(file(params.input_dir))
         def fastp_input = normalized_out.tsv
                 .map { tsv_file -> 
-                file(tsv_file).parent              // directory containing the TSV
+                file(tsv_file).parent
             }
-            .unique()                              // avoid passing duplicates
-
+            .unique()
         def fastp_out = FASTP(fastp_input, params.fastp)
 
         def hq_reads = fastp_out.filtered
@@ -49,7 +51,6 @@ workflow ILN_PIPELINE {
             "HQ Reads for SHOVILL - Sample_ID: ${sample_id}, R1: ${read1?.name}, R2: ${read2?.name}"
         }
 
-        // --- Assembly ---
         def shovill_out = SHOVILL(hq_reads, params.shovill)
         def final_assembly = shovill_out.fasta
 
@@ -57,7 +58,6 @@ workflow ILN_PIPELINE {
             "Shovill Assembly - Sample_ID: ${sample_id}, File: ${assembly_file.name}, Exists: ${assembly_file.exists()}"
         }
 
-        // --- Analysis Tools ---
         def quast_in = hq_reads.join(final_assembly).map { sample_id, read1, read2, assembly_file ->
             tuple(sample_id, read1, read2, assembly_file)
         }
@@ -66,8 +66,16 @@ workflow ILN_PIPELINE {
         def bakta_in = final_assembly.map { sample_id, assembly_file ->
             tuple(sample_id, assembly_file)
         }
-        def bakta_out = BAKTA(bakta_in, params.bakta)
 
+        def bakta_out
+        if (!params.skip_bakta) {
+            bakta_out = BAKTA(bakta_in, params.bakta)
+            log.info "BAKTA process is active."
+        } else {
+            bakta_out = bakta_out_empty
+            log.info "BAKTA process skipped by user parameter '--skip_bakta'."
+        }
+        
         def rmlst_in = final_assembly.map { sample_id, assembly_file ->
             tuple(sample_id, assembly_file)
         }
@@ -88,16 +96,15 @@ workflow ILN_PIPELINE {
         }
         def plasmidfinder_out = PLASMIDFINDER(plasmidfinder_in, params.plasmidfinder)
 
-        // --- Results ---
         def results_in = channel.empty()
             .mix(final_assembly.map          { sample_id, assembly_file -> tuple(sample_id, assembly_file, 'Fasta', params.mode) })
             .mix(amrfinder_out.txt.map       { sample_id, amr_file -> tuple(sample_id, amr_file, 'AMRFinderPlus', params.mode) })
             .mix(mlst_out.tsv.map            { sample_id, mlst_file -> tuple(sample_id, mlst_file, 'MLST', params.mode) })
             .mix(plasmidfinder_out.tsv.map   { sample_id, tsv_file -> tuple(sample_id, tsv_file, 'PlasmidFinder', params.mode) })
             .mix(quast_out.tsv.map           { sample_id, metrics_file -> tuple(sample_id, metrics_file, 'QUAST', params.mode) })
-            .mix(bakta_out.tsv.map           { sample_id, tsv_file -> tuple(sample_id, tsv_file, 'Bakta', params.mode) })
-            .mix(bakta_out.faa.map           { sample_id, faa_file -> tuple(sample_id, faa_file, 'Bakta', params.mode) })
-            .mix(bakta_out.gbff.map          { sample_id, gbff_file -> tuple(sample_id, gbff_file, 'Bakta', params.mode) })
+            .mix(bakta_out.tsv.collect().flatten().map           { sample_id, tsv_file -> tuple(sample_id, tsv_file, 'Bakta', params.mode) })
+            .mix(bakta_out.faa.collect().flatten().map           { sample_id, faa_file -> tuple(sample_id, faa_file, 'Bakta', params.mode) })
+            .mix(bakta_out.gbff.collect().flatten().map          { sample_id, gbff_file -> tuple(sample_id, gbff_file, 'Bakta', params.mode) })
             .mix(rmlst_out.tsv.map           { sample_id, tsv_file -> tuple(sample_id, tsv_file, 'rMLST', params.mode) })
 
         def results_out = RESULTS_PUBLISHER(results_in)

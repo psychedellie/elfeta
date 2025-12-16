@@ -8,7 +8,7 @@
     "bwa_mem": "",
     "polypolish_filter": "",
     "polypolish_polish": "--careful",
-    "quast": "",
+    "quast": "--min-contig 30",
     "bakta": "--force",
     "amrfinder": "--plus",
     "unicycler": "--min_fasta_length 30 --depth_filter 0",

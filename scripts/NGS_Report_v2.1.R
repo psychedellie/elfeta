@@ -272,7 +272,29 @@ sample_df <- readr::read_csv(SAMPLE_SHEET, show_col_types = FALSE, progress = FA
 if (!"Comments" %in% names(sample_df)) {
   sample_df$Comments <- ""
 }
-base_part <- sample_df %>% transmute(Lab_ID, Original_ID, Index, Platform, Expected_Organism, Comments)
+
+# --- MODIFICATION START ---
+# Ensure Expected_Organism column exists
+if (!"Expected_Organism" %in% names(sample_df)) {
+  sample_df$Expected_Organism <- ""
+}
+
+# Process base columns and replace missing Expected_Organism with "N/A (Unknown)"
+base_part <- sample_df %>% 
+  transmute(
+    Lab_ID, 
+    Original_ID, 
+    Index, 
+    Platform,
+    Expected_Organism = ifelse(
+      is.na(Expected_Organism) | Expected_Organism == "",
+      "N/A (Unknown)", # Placeholder for unknown/missing organism
+      Expected_Organism
+    ),
+    Comments
+  )
+# --- MODIFICATION END ---
+
 
 quast_part <- purrr::map_dfr(base_part$Lab_ID, function(iso_id) {
   tsv <- find_isolate_file(QUAST_DIR, iso_id, suffix_regex = ".*\\.tsv$")
@@ -333,11 +355,11 @@ vir_col <- tibble(`Virulence Genes (>90% cov, >90% ID, AMRFinderPlus)` = purrr::
 }))
 clonal_complex_col <- tibble(`Clonal Complex` = NA_character_)
 
-# Explicitly binding Comments from base_part (which comes from Sample Sheet)
+# Explicitly binding Comments and the modified Expected_Organism from base_part
 final_report <- bind_cols(
   base_part %>% transmute(`Lab ID` = Lab_ID, `Original ID` = Original_ID, Index),
   platform_col, quast_part, circular_contigs_col, q30_col,
-  base_part %>% transmute(`Expected Organism` = Expected_Organism),
+  base_part %>% transmute(`Expected Organism` = Expected_Organism), # Uses the corrected column
   org_col, det_col, st_col, clonal_complex_col, plasmid_col, amr_col, point_col, pred_col, vir_col,
   base_part %>% transmute(Comments) 
 )

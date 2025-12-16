@@ -23,6 +23,13 @@ include { RESULTS_PUBLISHER }    from '../../modules/utils/results_publisher.nf'
 workflow LP_PIPELINE {
 
     main:
+        // --- BAKTA PLACEHOLDER DEFINITION (REQUIRED FOR CONDITIONAL SKIP) ---
+        def bakta_out_empty = [
+            tsv:    channel.empty(),
+            faa:    channel.empty(),
+            gbff:   channel.empty(),
+            outdir: channel.empty()
+        ]
 
         // --- Input Logic ---
         channel.fromPath(params.input_dir).view { input_dir ->
@@ -165,7 +172,18 @@ workflow LP_PIPELINE {
         def bakta_in = final_assembly.map { sample_id, assembly_file ->
             tuple(sample_id, assembly_file)
         }
-        def bakta_out = BAKTA(bakta_in, params.bakta)
+        
+        // --- CONDITIONAL BAKTA EXECUTION ---
+        def bakta_out
+        if (!params.skip_bakta) {
+            bakta_out = BAKTA(bakta_in, params.bakta)
+            log.info "BAKTA process is active."
+        } else {
+            bakta_out = bakta_out_empty
+            log.info "BAKTA process skipped by user parameter '--skip_bakta'."
+        }
+        // --- END CONDITIONAL BAKTA EXECUTION ---
+
 
         def rmlst_in = final_assembly.map { sample_id, assembly_file ->
             tuple(sample_id, assembly_file)
@@ -194,9 +212,12 @@ workflow LP_PIPELINE {
             .mix(mlst_out.tsv.map            { sample_id, file -> tuple(sample_id, file, 'MLST', params.mode) })
             .mix(plasmidfinder_out.tsv.map   { sample_id, file -> tuple(sample_id, file, 'PlasmidFinder', params.mode) })
             .mix(quast_out.tsv.map           { sample_id, file -> tuple(sample_id, file, 'QUAST', params.mode) })
-            .mix(bakta_out.tsv.map           { sample_id, file -> tuple(sample_id, file, 'Bakta', params.mode) })
-            .mix(bakta_out.faa.map           { sample_id, file -> tuple(sample_id, file, 'Bakta', params.mode) })
-            .mix(bakta_out.gbff.map          { sample_id, file -> tuple(sample_id, file, 'Bakta', params.mode) })
+            
+            // Safe mixing of BAKTA results using collect().flatten()
+            .mix(bakta_out.tsv.collect().flatten().map           { sample_id, file -> tuple(sample_id, file, 'Bakta', params.mode) })
+            .mix(bakta_out.faa.collect().flatten().map           { sample_id, file -> tuple(sample_id, file, 'Bakta', params.mode) })
+            .mix(bakta_out.gbff.collect().flatten().map          { sample_id, file -> tuple(sample_id, file, 'Bakta', params.mode) })
+            
             .mix(rmlst_out.tsv.map           { sample_id, file -> tuple(sample_id, file, 'rMLST', params.mode) })
 
         def results_out = RESULTS_PUBLISHER(results_in)

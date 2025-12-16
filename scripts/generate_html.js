@@ -305,11 +305,11 @@ function generateHtmlTemplate(tableHeaders, tableRows, stats, idx) {
 
             <h4><i class="fas fa-info-circle"></i> Pipeline Tools & Parameters</h4>
             <ul>
-                <li><strong>QC Status:</strong> Automatic check for Low Depth (<30x), Low Identity (<95%), or Unexpected Organism.</li>
+                <li><strong>QC Status:</strong> Automatic check for Low Depth (&lt;30x), Low Identity (&lt;95%), or Unexpected Organism.</li>
                 <li><strong>Plasmids:</strong> Identified using <em>PlasmidFinder</em>.</li>
-                <li><strong>ARGs, Virulence & Mutations:</strong> <em>AMRFinderPlus</em> (Filters: >90% Coverage, >90% Identity).</li>
+                <li><strong>ARGs, Virulence & Mutations:</strong> <em>AMRFinderPlus</em> (Filters: &gt;90% Coverage, &gt;90% Identity).</li>
                 <li><strong>Identification:</strong> Species identification based on <em>rMLST</em>.</li>
-                ${idx.q30 !== -1 ? '<li><strong>Q30%:</strong> Percentage of bases with Quality Score > 30 (filtered reads).</li>' : ''}
+                ${idx.q30 !== -1 ? '<li><strong>Q30%:</strong> Percentage of bases with Quality Score &gt; 30 (filtered reads).</li>' : ''}
                 <li><strong>Genome Size:</strong> Total length of assembled contigs.</li>
             </ul>
         </div>
@@ -370,15 +370,33 @@ function generateHtmlTemplate(tableHeaders, tableRows, stats, idx) {
                 },
                 
                 columnDefs: [
+                    // 1. GLOBAL VISIBILITY RULES (MUST BE FIRST)
                     { targets: columns_removed, visible: false, searchable: true },
-                    { targets: columns_hidden_details, className: 'none' },
+                    { targets: columns_hidden_details, className: 'none' }, // HIDES COLUMNS (e.g., N50, Plasmids) and sends them to the responsive details row
                     
+                    // 2. RESPONSIVE PRIORITY & TYPE RULES
+                    { responsivePriority: 1, targets: 0 }, 
+                    { responsivePriority: 2, targets: 1 }, 
+                    { responsivePriority: 5, targets: 6 }, 
+                    { targets: [4], type: "num" }, // Contig Number type
+                    
+                    // 3. CUSTOM CELL RENDERING & COLORING LOGIC
+                    
+                    // Logic for Detected Organism (Fixes the Red Issue and applies Icon/Color for Mismatches)
                     {
                         targets: [IDX.detected], 
                         createdCell: function(td, cellData, rowData, row, col) {
                             if (IDX.expected === -1 || IDX.detected === -1) return;
+                            
                             const expected = (rowData[IDX.expected] || "").toString().toLowerCase().trim();
                             const detected = (cellData || "").toString().toLowerCase().trim();
+
+                            // FIX: If Expected Organism is the placeholder, skip all coloring and return.
+                            if (expected === "n/a (unknown)") {
+                                return;
+                            }
+
+                            // Apply visual warning ONLY if both are non-placeholder and mismatched
                             if (detected !== "" && !detected.includes(expected)) {
                                 $(td).addClass('text-red-alert');
                                 $(td).html('<i class="fas fa-times-circle"></i> ' + cellData);
@@ -386,11 +404,7 @@ function generateHtmlTemplate(tableHeaders, tableRows, stats, idx) {
                         }
                     },
                     
-                    { responsivePriority: 1, targets: 0 }, 
-                    { responsivePriority: 2, targets: 1 }, 
-                    { responsivePriority: 5, targets: 6 }, 
-                    { targets: [4], type: "num" }, 
-                    
+                    // Logic for Genome Length (Rendering Mb format)
                     {
                         targets: IDX.genomeLen, 
                         render: function(data, type) {
@@ -401,16 +415,22 @@ function generateHtmlTemplate(tableHeaders, tableRows, stats, idx) {
                             } return data;
                         }
                     },
+                    
+                    // Logic for Depth (Coloring Status Badges)
                     {
                         targets: IDX.depth, 
                         createdCell: function(td, cellData) {
-                            const match = (cellData || "").toString().match(/(\\d+)/);
-                            const val = match ? parseInt(match[0]) : 0;
+                            const val = parseFloat((cellData || "").toString().replace('x', ''));
+                            
+                            if (isNaN(val)) return; // Skip if 'N/A'
+
                             if (val >= 30) $(td).addClass('status-ok');
                             else if (val >= 20) $(td).addClass('status-warning');
                             else $(td).addClass('status-critical');
                         }
                     },
+                    
+                    // Logic for Q30% (Rendering Percent Sign)
                     {
                         targets: IDX.q30,
                         render: function(data, type) {
@@ -422,20 +442,28 @@ function generateHtmlTemplate(tableHeaders, tableRows, stats, idx) {
                             return data;
                         }
                     },
+                    
+                    // Logic for Detection (Coloring Red Alert for low rMLST support)
                     {
                         targets: IDX.detection, 
                         createdCell: function(td, cellData) {
                             const txt = (cellData || "").toString().replace('%', '');
                             const val = parseFloat(txt);
+                            
                             if (!isNaN(val) && val < 95) {
                                 $(td).addClass("text-red-alert");
                             }
                         }
                     },
+                    
+                    // Logic for ARG/Point Mutation column width and display
                     { targets: [IDX.args], className: "arg-list" },
                     { targets: [IDX.points], className: "point-mut-list" },
+                    
+                    // Default rule
                     { targets: "_all", searchable: true }
                 ],
+            
                 initComplete: function() {
                     const filterCols = [];
                     if (IDX.detected !== -1) filterCols.push(IDX.detected);
@@ -469,23 +497,39 @@ function generateHtmlTemplate(tableHeaders, tableRows, stats, idx) {
                 filteredData.forEach(row => {
                     let isBad = false;
                     
+                    // --- DEPTH QC CHECK ---
                     if (IDX.depth !== -1) {
-                        const dMatch = (row[IDX.depth] || "").toString().match(/(\\d+)/);
-                        if (dMatch) {
-                            if (parseInt(dMatch[0]) > 30) depthCount++;
-                            if (parseInt(dMatch[0]) < 30) isBad = true;
+                        const dVal = parseFloat((row[IDX.depth] || "").toString().replace('x', ''));
+                        
+                        if (!isNaN(dVal)) { // Only check QC if a valid number is found
+                            if (dVal > 30) depthCount++;
+                            if (dVal < 30) isBad = true;
                         }
                     }
                     
+                    // --- DETECTION QC CHECK (rMLST support) ---
                     if (IDX.detection !== -1) {
                         const detVal = parseFloat((row[IDX.detection] || "").toString().replace('%',''));
-                        if (!isNaN(detVal) && detVal < 95) isBad = true;
+                        
+                        // Only check QC if a valid number is found
+                        if (!isNaN(detVal) && detVal < 95) { 
+                            isBad = true;
+                        }
                     }
 
+                    // --- EXPECTED VS DETECTED QC CHECK ---
                     if (IDX.expected !== -1 && IDX.detected !== -1) {
                         const expected = (row[IDX.expected] || "").toString().toLowerCase().trim();
                         const detected = (row[IDX.detected] || "").toString().toLowerCase().trim();
-                        if (detected !== "" && !detected.includes(expected)) isBad = true;
+                        
+                        // Check 1: If expected is the placeholder, skip the mismatch check entirely.
+                        if (expected !== "n/a (unknown)") {
+                            // Check 2: If detected is not empty AND detected does not match the valid expected organism.
+                            if (detected !== "" && !detected.includes(expected)) {
+                                isBad = true;
+                            }
+                        }
+                        // Note: If 'detected' is also N/A (unknown) or empty, no mismatch is flagged here.
                     }
                     
                     if (isBad) qcWarnings++;

@@ -17,7 +17,8 @@ include { BAKTA }                from '../../modules/typing/bakta.nf'
 include { RMLST }                from '../../modules/typing/rmlst.nf'
 include { MLST }                 from '../../modules/typing/mlst.nf'
 include { AMRFINDERPLUS }        from '../../modules/typing/amrfinderplus.nf'
-include { PLASMIDFINDER }        from '../../modules/typing/plasmidfinder.nf'
+include { PLASMIDFINDER }        from '../../modules/plasmid/plasmidfinder.nf'
+include { MOBTYPER }             from '../../modules/plasmid/mob_typer.nf'
 include { RESULTS_PUBLISHER }    from '../../modules/utils/results_publisher.nf'
 
 workflow LP_PIPELINE {
@@ -159,6 +160,12 @@ workflow LP_PIPELINE {
         def polypolish_out = POLYPOLISH_POLISH(polypolish_in, params.polypolish_polish)
         def final_assembly = polypolish_out.fasta
 
+        // --- MOB-TYPER ---
+        def mob_in = final_assembly.map { sample_id, assembly_file ->
+            tuple(sample_id, assembly_file)
+        }
+        def mob_out = MOBTYPER(mob_in, params.mobtyper)
+
         final_assembly.view { sample_id, assembly_file ->
             "Hybrid Assembly - Sample_ID: ${sample_id}, File: ${assembly_file.name}"
         }
@@ -211,6 +218,7 @@ workflow LP_PIPELINE {
             .mix(amrfinder_out.txt.map       { sample_id, file -> tuple(sample_id, file, 'AMRFinderPlus', params.mode) })
             .mix(mlst_out.tsv.map            { sample_id, file -> tuple(sample_id, file, 'MLST', params.mode) })
             .mix(plasmidfinder_out.tsv.map   { sample_id, file -> tuple(sample_id, file, 'PlasmidFinder', params.mode) })
+            .mix(mob_out.tsv.map             { sample_id, file -> tuple(sample_id, file, 'MOBTyper', params.mode) })
             .mix(quast_out.tsv.map           { sample_id, file -> tuple(sample_id, file, 'QUAST', params.mode) })
             
             // Safe mixing of BAKTA results using collect().flatten()
@@ -231,5 +239,6 @@ workflow LP_PIPELINE {
         Sequencing_Metrics    = quast_out.tsv
         ARGs_PMs_VGs          = amrfinder_out.txt
         Plasmid_Profiles      = plasmidfinder_out.outdir
+        MOB_Profiles          = mob_out.tsv
         Published_Results     = results_out
 }

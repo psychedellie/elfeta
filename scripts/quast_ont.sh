@@ -12,7 +12,13 @@ assembly="$1"
 outdir="$2"
 np_raw_file="$3"
 threads="$4"
-args="${5:-}"
+
+# Remove the first 5 positional arguments ($1 through $5)
+# What remains in $@ are the optional QUAST arguments
+shift 4
+
+# The remaining arguments are now in $@
+args="$@"
 
 # Create output directory
 mkdir -p "$outdir"

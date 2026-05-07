@@ -12,5 +12,6 @@
     "bakta": "--force",
     "amrfinder": "--plus",
     "unicycler": "--min_fasta_length 30 --depth_filter 0",
+    "mobtyper":"",
     "useMamba": true
 }

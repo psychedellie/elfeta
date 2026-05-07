@@ -1,6 +1,7 @@
 process REPORT {
     tag "Generating run report"
     label 'report'
+
     conda "${params.envs_dir}/r-report.yaml"
 
     publishDir "${params.output_dir}/Results", mode: 'copy'
@@ -14,9 +15,10 @@ process REPORT {
 
     output:
         path("final_report_complete.xlsx"), emit: xlsx
-        path("final_report_advanced.html"), emit: html
+        path("final_report.html"), emit: html
 
     script:
+
         def report_base_dir = "${results_dir}/Results"
 
         def assembly_dir_path = ""
@@ -30,11 +32,14 @@ process REPORT {
         } else {
             fastp_dir_path = "${results_dir}/fastp"
         }
-        
-        // --- NEW: Logs Directory ---
+
         def logs_dir_path = "${results_dir}/logs"
 
-        """        
+        def mob_dir_path  = "${report_base_dir}/MOBTyper"
+
+        def virulence_dir_path = "${report_base_dir}/VirulenceFinder"
+
+        """
         ARG1_RESULTS_DIR="${report_base_dir}"
         ARG2_SAMPLE_SHEET="${sample_sheet}"
         ARG3_QUAST_DIR="${report_base_dir}/QUAST"
@@ -46,6 +51,8 @@ process REPORT {
         ARG9_PIPELINE_MODE="${mode}"
         ARG10_FASTP_DIR="${fastp_dir_path}"
         ARG11_LOGS_DIR="${logs_dir_path}"
+        ARG12_MOB_DIR="${mob_dir_path}"
+        ARG13_VIRULENCE_DIR="${virulence_dir_path}"
 
         Rscript "${params.scripts_dir}/NGS_Report_v2.1.R" \
             "\$ARG1_RESULTS_DIR" \
@@ -58,9 +65,11 @@ process REPORT {
             "\$ARG8_ASSEMBLY_DIR" \
             "\$ARG9_PIPELINE_MODE" \
             "\$ARG10_FASTP_DIR" \
-            "\$ARG11_LOGS_DIR"
+            "\$ARG11_LOGS_DIR" \
+            "\$ARG12_MOB_DIR" \
+            "\$ARG13_VIRULENCE_DIR"
 
         mv "${report_base_dir}/final_report_complete.xlsx" .
-        mv "${report_base_dir}/final_report_advanced.html" .
+        mv "${report_base_dir}/final_report.html" .
         """
 }

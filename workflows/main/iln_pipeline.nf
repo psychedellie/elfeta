@@ -9,7 +9,8 @@ include { BAKTA }                from '../../modules/typing/bakta.nf'
 include { RMLST }                from '../../modules/typing/rmlst.nf'
 include { MLST }                 from '../../modules/typing/mlst.nf'
 include { AMRFINDERPLUS }        from '../../modules/typing/amrfinderplus.nf'
-include { PLASMIDFINDER }        from '../../modules/typing/plasmidfinder.nf'
+include { PLASMIDFINDER }        from '../../modules/plasmid/plasmidfinder.nf'
+include { MOBTYPER }             from '../../modules/plasmid/mob_typer.nf'
 include { RESULTS_PUBLISHER }    from '../../modules/utils/results_publisher.nf'
 
 workflow ILN_PIPELINE {
@@ -27,7 +28,7 @@ workflow ILN_PIPELINE {
 
         def normalized_out = NORMALIZE_SHORTREADS(file(params.input_dir))
         def fastp_input = normalized_out.tsv
-                .map { tsv_file -> 
+                .map { tsv_file ->
                 file(tsv_file).parent
             }
             .unique()
@@ -58,6 +59,12 @@ workflow ILN_PIPELINE {
             "Shovill Assembly - Sample_ID: ${sample_id}, File: ${assembly_file.name}, Exists: ${assembly_file.exists()}"
         }
 
+        // --- MOB-TYPER ---
+        def mob_in = final_assembly.map { sample_id, assembly_file ->
+            tuple(sample_id, assembly_file)
+        }
+        def mob_out = MOBTYPER(mob_in, params.mobtyper)
+
         def quast_in = hq_reads.join(final_assembly).map { sample_id, read1, read2, assembly_file ->
             tuple(sample_id, read1, read2, assembly_file)
         }
@@ -75,7 +82,7 @@ workflow ILN_PIPELINE {
             bakta_out = bakta_out_empty
             log.info "BAKTA process skipped by user parameter '--skip_bakta'."
         }
-        
+
         def rmlst_in = final_assembly.map { sample_id, assembly_file ->
             tuple(sample_id, assembly_file)
         }
@@ -101,6 +108,7 @@ workflow ILN_PIPELINE {
             .mix(amrfinder_out.txt.map       { sample_id, amr_file -> tuple(sample_id, amr_file, 'AMRFinderPlus', params.mode) })
             .mix(mlst_out.tsv.map            { sample_id, mlst_file -> tuple(sample_id, mlst_file, 'MLST', params.mode) })
             .mix(plasmidfinder_out.tsv.map   { sample_id, tsv_file -> tuple(sample_id, tsv_file, 'PlasmidFinder', params.mode) })
+            .mix(mob_out.tsv.map             { sample_id, tsv_file -> tuple(sample_id, tsv_file, 'MOBTyper', params.mode) })
             .mix(quast_out.tsv.map           { sample_id, metrics_file -> tuple(sample_id, metrics_file, 'QUAST', params.mode) })
             .mix(bakta_out.tsv.collect().flatten().map           { sample_id, tsv_file -> tuple(sample_id, tsv_file, 'Bakta', params.mode) })
             .mix(bakta_out.faa.collect().flatten().map           { sample_id, faa_file -> tuple(sample_id, faa_file, 'Bakta', params.mode) })
@@ -117,5 +125,6 @@ workflow ILN_PIPELINE {
         Sequencing_Metrics    = quast_out.tsv
         ARGs_PMs_VGs          = amrfinder_out.txt
         Plasmid_Profiles      = plasmidfinder_out.outdir
+        MOB_Profiles          = mob_out.tsv
         Published_Results     = results_out
 }
